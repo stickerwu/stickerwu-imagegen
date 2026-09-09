@@ -1,0 +1,19 @@
+{
+  "name": "vvvcode-image-gen",
+  "version": "1.0.0",
+  "description": "VVVCode image generation and multipart image editing with flare and sunburst.",
+  "author": {
+    "name": "stickerwu"
+  },
+  "skills": "./skills/",
+  "license": "MIT",
+  "interface": {
+    "displayName": "VVVCode Image Gen",
+    "shortDescription": "通过 VVVCode 生图、改图，支持 flare 与 sunburst。",
+    "longDescription": "独立的生图和改图接口；改图上传真实文件，支持参考图、遮罩和模型切换。",
+    "developerName": "stickerwu",
+    "category": "Productivity",
+    "capabilities": ["Write"],
+    "defaultPrompt": ["用 sunburst 生成一张图片", "参考这张图片，用 flare 修改背景"]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "vvvcode-image-gen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Codex plugin for VVVCode image generation and multipart image editing",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test", "check": "node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs" }
+}

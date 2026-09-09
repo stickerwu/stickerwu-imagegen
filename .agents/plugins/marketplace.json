@@ -1,0 +1,20 @@
+{
+  "name": "vvvcode-plugins",
+  "interface": {
+    "displayName": "Vvvcode Plugins"
+  },
+  "plugins": [
+    {
+      "name": "vvvcode-image-gen",
+      "source": {
+        "source": "local",
+        "path": "./plugins/vvvcode-image-gen"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
