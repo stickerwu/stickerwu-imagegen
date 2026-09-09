@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { requestImages, safeError, normalizeBase, MODELS } from './client.mjs';
+import { inspectPng, pngDimensions, resolutionSize } from './image-info.mjs';
 
 const configPath = join(homedir(), '.config', 'vvvcode-image-gen', 'config.json');
 let apiKey = process.env.VVVCODE_API_KEY || '';
@@ -20,6 +21,10 @@ try {
     'prompt-file': { type: 'string' },
     model: { type: 'string' },
     size: { type: 'string' },
+    resolution: { type: 'string' },
+    ratio: { type: 'string' },
+    background: { type: 'string' },
+    'output-format': { type: 'string' },
     quality: { type: 'string' },
     count: { type: 'string' },
     timeout: { type: 'string' },
@@ -37,6 +42,8 @@ try {
   --prompt-file prompt.txt                    Avoid shell quoting issues
   --image a.png --image b.png --edit ...      Multiple reference images
   --count 1..4 --quality VALUE --timeout 300000 --output-dir outputs
+  --background transparent|opaque|auto --output-format png|jpeg|webp
+  --resolution 1K|2K|4K [--ratio 3:4]         Long edge 1024/2048/4096
   --get-config                               Does not expose the API key
   --set-config --model flare --base-url https://apis.vvvcode.com/
   --key-stdin                                Read and save a key from stdin
@@ -70,15 +77,45 @@ No automatic retries or fallback from edits to generations.`);
     const prompt = flags['prompt-file'] ? await readFile(flags['prompt-file'], 'utf8') : flags.prompt;
     const mode = flags.edit ? 'edit' : 'generate';
     const model = flags.model || config.model || 'sunburst';
-    console.log(`Mode: ${mode}; model: ${model}; size: ${flags.size || (flags.edit ? 'auto' : '1024x1024')}`);
+    if (flags.size && flags.resolution) throw new Error('Choose size or resolution, not both.');
+    if (flags.ratio && !flags.resolution) throw new Error('ratio requires resolution.');
+    let size = flags.size;
+    if (flags.resolution) {
+      let ratio = 1;
+      if (flags.ratio) {
+        if (!/^\d+:\d+$/.test(flags.ratio)) throw new Error('Ratio must be WIDTH:HEIGHT.');
+        const [w, h] = flags.ratio.split(':').map(Number);
+        ratio = w / h;
+      } else if (flags.edit && flags.image?.length) {
+        // Fail explicitly for non-PNG instead of guessing and distorting a source.
+        const { width, height } = pngDimensions(await readFile(flags.image[0]));
+        ratio = width / height;
+      }
+      size = resolutionSize(flags.resolution, ratio);
+    }
+    size ??= flags.edit ? 'auto' : '1024x1024';
+    console.log(`Mode: ${mode}; model: ${model}; size: ${size}; background: ${flags.background || 'unspecified'}`);
     const files = await requestImages({
       apiKey, mode, model, prompt, images: flags.image, mask: flags.mask,
-      size: flags.size, quality: flags.quality, n: Number(flags.count || 1),
+      size, quality: flags.quality, background: flags.background,
+      outputFormat: flags['output-format'], n: Number(flags.count || 1),
       timeout: Number(flags.timeout || 300000),
       baseUrl: flags['base-url'] || process.env.VVVCODE_BASE_URL || config.baseUrl,
       outputDir: flags['output-dir'],
     });
-    console.log(JSON.stringify({ ok: true, mode, model, files }, null, 2));
+    const results = [];
+    for (const file of files) {
+      let metadata;
+      try { metadata = inspectPng(await readFile(file)); }
+      catch (error) { metadata = { transparencyVerified: false, reason: safeError(error, apiKey) }; }
+      const warnings = [];
+      if (size !== 'auto' && metadata.width && `${metadata.width}x${metadata.height}` !== size) warnings.push('Returned dimensions differ from requested size.');
+      if (flags.background === 'transparent' &&
+          (!metadata.transparencyVerified || !(metadata.transparentPixels + metadata.translucentPixels > 0)))
+        warnings.push('Real transparency was NOT verified; do not claim transparent output.');
+      results.push({ file, ...metadata, warnings });
+    }
+    console.log(JSON.stringify({ ok: true, mode, model, requestedSize: size, files, results }, null, 2));
   }
 } catch (error) {
   console.error(safeError(error, apiKey));

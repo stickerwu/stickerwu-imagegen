@@ -28,6 +28,11 @@ Do not ask users to paste secrets into chat.
 - Editing: multipart POST `/v1/images/edits`, including actual image bytes.
 - Never simulate editing by sending an undocumented image field to generations.
 - Never promise pixel-perfect preservation, official logo fidelity or transparency.
+- Live test on September 9, 2026: VVVCode returned HTTP 400
+  "Transparent background is not supported for this model." for
+  `gpt-image-2.5-sunburst` at 1K, 2K and 4K. Do not claim sunburst transparency.
+  The `background=transparent` parameter remains available for future models or
+  provider changes, and failures must be reported without fallback.
 - API/model names are provider identifiers; do not infer official OpenAI availability.
 
 ## Generate

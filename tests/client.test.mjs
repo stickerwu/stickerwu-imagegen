@@ -71,3 +71,22 @@ test('invalid arguments fail before any network call', async () => {
     await assert.rejects(requestImages({ apiKey: 'test', prompt: 'cat', fetchImpl, ...options }));
   }
 });
+test('transparent output fields reach both JSON and multipart requests', () => workspace(async dir => {
+  const image = join(dir, 'source.png');
+  await writeFile(image, png);
+  for (const mode of ['generate', 'edit']) {
+    await requestImages({ apiKey: 'test', mode, images: mode === 'edit' ? [image] : [],
+      prompt: 'cat', background: 'transparent', outputFormat: 'png', outputDir: dir,
+      fetchImpl: async (url, init) => {
+        const field = key => init.body instanceof FormData ? init.body.get(key) : JSON.parse(init.body)[key];
+        assert.equal(field('background'), 'transparent');
+        assert.equal(field('output_format'), 'png');
+        return Response.json({ data: [{ b64_json: png.toString('base64') }] });
+      } });
+  }
+}));
+test('transparent JPEG is rejected without spending a request', async () => {
+  await assert.rejects(requestImages({ apiKey: 'test', prompt: 'cat',
+    background: 'transparent', outputFormat: 'jpeg',
+    fetchImpl: () => assert.fail('must not spend') }), /transparent/i);
+});

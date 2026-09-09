@@ -30,7 +30,7 @@ async function fileBlob(path) {
 }
 export async function requestImages({
   apiKey, baseUrl, mode = 'generate', model = 'sunburst', prompt, images = [], mask,
-  size, quality, n = 1, outputDir = 'outputs', timeout = 300000, fetchImpl = fetch,
+  size, quality, background, outputFormat, n = 1, outputDir = 'outputs', timeout = 300000, fetchImpl = fetch,
 } = {}) {
   if (!apiKey) throw new Error('Set VVVCODE_API_KEY before making a request.');
   if (!['generate', 'edit'].includes(mode)) throw new Error('Mode must be generate or edit.');
@@ -43,8 +43,13 @@ export async function requestImages({
   if (mode === 'generate' && (images.length || mask)) throw new Error('Images and mask require edit mode.');
   size ??= mode === 'edit' ? 'auto' : '1024x1024';
   if (size !== 'auto' && !/^[1-9]\d{1,4}x[1-9]\d{1,4}$/.test(size)) throw new Error('Size must be auto or WIDTHxHEIGHT.');
+  if (background && !['auto', 'opaque', 'transparent'].includes(background)) throw new Error('Invalid background.');
+  if (outputFormat && !['png', 'jpeg', 'webp'].includes(outputFormat)) throw new Error('Invalid output format.');
+  if (background === 'transparent' && outputFormat === 'jpeg') throw new Error('JPEG cannot be transparent.');
+  if (background === 'transparent') outputFormat ??= 'png';
   const headers = { Authorization: `Bearer ${apiKey}` };
-  const fields = { model, prompt, n, size, ...(quality ? { quality } : {}) };
+  const fields = { model, prompt, n, size, ...(quality ? { quality } : {}),
+    ...(background ? { background } : {}), ...(outputFormat ? { output_format: outputFormat } : {}) };
   let body;
   if (mode === 'edit') {
     body = new FormData();

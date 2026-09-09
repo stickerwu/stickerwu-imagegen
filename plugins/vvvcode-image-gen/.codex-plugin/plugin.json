@@ -1,6 +1,6 @@
 {
   "name": "vvvcode-image-gen",
-  "version": "1.0.0",
+  "version": "1.0.0+codex.20260909104134",
   "description": "VVVCode image generation and multipart image editing with flare and sunburst.",
   "author": {
     "name": "stickerwu"
@@ -9,11 +9,16 @@
   "license": "MIT",
   "interface": {
     "displayName": "VVVCode Image Gen",
-    "shortDescription": "通过 VVVCode 生图、改图，支持 flare 与 sunburst。",
-    "longDescription": "独立的生图和改图接口；改图上传真实文件，支持参考图、遮罩和模型切换。",
+    "shortDescription": "\u901a\u8fc7 VVVCode \u751f\u56fe\u3001\u6539\u56fe\uff0c\u652f\u6301 flare \u4e0e sunburst\u3002",
+    "longDescription": "\u72ec\u7acb\u7684\u751f\u56fe\u548c\u6539\u56fe\u63a5\u53e3\uff1b\u6539\u56fe\u4e0a\u4f20\u771f\u5b9e\u6587\u4ef6\uff0c\u652f\u6301\u53c2\u8003\u56fe\u3001\u906e\u7f69\u548c\u6a21\u578b\u5207\u6362\u3002",
     "developerName": "stickerwu",
     "category": "Productivity",
-    "capabilities": ["Write"],
-    "defaultPrompt": ["用 sunburst 生成一张图片", "参考这张图片，用 flare 修改背景"]
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "\u7528 sunburst \u751f\u6210\u4e00\u5f20\u56fe\u7247",
+      "\u53c2\u8003\u8fd9\u5f20\u56fe\u7247\uff0c\u7528 flare \u4fee\u6539\u80cc\u666f"
+    ]
   }
 }
