@@ -44,4 +44,11 @@ Ledger:
 - Browser mock flows covered settings, invalid dimensions, preview, refresh and SVG.
 - Two live calls completed with no retry: Sunburst SSE final PNG was 1218x1292
   instead of 2048x2048 and provided no partials; Flare JPEG request returned PNG.
-- Native install, final installed-browser smoke test and repository release pending.
+- Independent review found startup-size inheritance, read-only references and SVG
+  active-content edge cases; all three were corrected with targeted verification.
+- Native 1.4.0 install verified byte-for-byte across 16 plugin files.
+- Installed-browser resume verified read-only SVG and contextual settings. A later
+  attempt to inspect the startup-size UI fix could not resume the closed browser
+  task space; it was stopped without a generation request or a new task space.
+- GitHub/Gitee main synchronized; source-only ZIP and local verification report
+  generated. Actual provider limitations remain documented rather than hidden.
