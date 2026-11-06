@@ -1,6 +1,7 @@
-# VVVCode Image Gen
+# stickerwu imagegen
 
-用于 Codex 的生图 / 改图插件，已适配 GPT Image 2.6。v1.4.0 补齐**画布参数面板与输出协议**：
+用于 Codex 的生图 / 改图插件，原名 **VVVCode Image Gen**。v1.5.0 加入**自定义 API、多连接切换与旧版兼容更新**。
+已适配 GPT Image 2.6，保留画布参数面板与输出协议：
 每个图片框可以独立选择模型、质量、复杂度、分辨率、输出格式、压缩和流式预览。
 沿用 Cowart 的浅灰、白、蓝配色与悬浮布局，支持撤销重做、多选、橡皮擦和参考图。
 支持图片框生图、导入图片、圈画改图、并排比较、保存后重新打开。
@@ -74,16 +75,21 @@ codex plugin add vvvcode-image-gen@vvvcode-plugins
 `plugins/vvvcode-image-gen`。本地市场注册和插件安装命令已在开发环境验证。
 安装后新建一个 Codex 任务使用插件，也可以直接使用下面的 CLI。
 
-## 密钥
+## API 地址与密钥
 
-推荐在启动 Codex / 运行脚本的环境设置 `VVVCODE_API_KEY`。
+画布菜单中的 **API 设置** 可新建连接、设置 API 地址和独立密钥，再点击 **保存并使用**；
+也可选择已有连接后点击 **切换连接**。设置操作不发起生图，下一次明确提交才调用所选 API。
+更换地址不会自动沿用旧密钥。保持 Cowart 风格的浅灰、白色面板和蓝色按钮。
+
+也可在环境中设置 `STICKERWU_IMAGEGEN_API_KEY` / `STICKERWU_IMAGEGEN_BASE_URL`。
+旧的 `VVVCODE_API_KEY` / `VVVCODE_BASE_URL` 仍有效，新名称优先。
 `.env.example` 仅为变量说明；脚本不会自动读取 `.env`。
 不要把真实密钥放进项目、命令参数、Git 或聊天消息。
 
 也可在 PowerShell 中隐藏输入并通过 stdin 保存到项目外：
 
 ```powershell
-$vvvSecureKey = Read-Host 'VVVCode API Key' -AsSecureString
+$vvvSecureKey = Read-Host 'stickerwu imagegen API Key' -AsSecureString
 $vvvCredential = [System.Net.NetworkCredential]::new('', $vvvSecureKey)
 $vvvCredential.Password | node plugins/vvvcode-image-gen/scripts/generate.mjs --key-stdin
 Remove-Variable vvvSecureKey, vvvCredential
@@ -96,7 +102,23 @@ Remove-Variable vvvSecureKey, vvvCredential
 ```sh
 node plugins/vvvcode-image-gen/scripts/generate.mjs --get-config
 node plugins/vvvcode-image-gen/scripts/generate.mjs --set-config --model flare
+node plugins/vvvcode-image-gen/scripts/generate.mjs --set-config --profile work --base-url https://api.example.com/v1 --key-stdin
+node plugins/vvvcode-image-gen/scripts/generate.mjs --list-profiles
+node plugins/vvvcode-image-gen/scripts/generate.mjs --use-profile work
+node plugins/vvvcode-image-gen/scripts/annotate.mjs --profile work --output-dir outputs
 ```
+
+`--profile NAME` 在生图和画布 CLI 中均可使用，显式选择该连接时不读取环境中的地址/密钥。
+`--base-url` 仍可临时覆盖地址；换成不同地址时不会沿用已保存的密钥，须同时配置对应密钥或单独保存连接。
+API 需兼容 OpenAI 图片端点及所选模型；填写 HTTPS 基础地址即可。
+完整优先级与配置格式见 [API 连接说明](plugins/vvvcode-image-gen/skills/vvvcode-image-gen/references/api-profiles.md)。
+
+### 从旧版更新
+
+显示名已改为 `stickerwu imagegen`，**安装 ID 继续保留 `vvvcode-image-gen@vvvcode-plugins`**，
+因此原安装可以直接更新，不会变成两个插件。仓库地址、脚本路径、技能 ID 和旧环境变量继续有效。
+原 `~/.config/vvvcode-image-gen/config.json` 无需移动或重新输入密钥；首次保存时扩展为多连接格式，
+并保留旧版能读取的顶层 `apiKey`、`baseUrl`、`model`。旧画布仍可用 `--session` 打开。
 
 ## 使用
 

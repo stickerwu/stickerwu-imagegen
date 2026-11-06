@@ -30,7 +30,7 @@ export async function requestImages({
   outputCompression, stream, partialImages, onProgress = () => {},
   n = 1, outputDir = 'outputs', timeout = 300000, fetchImpl = fetch,
 } = {}) {
-  if (!apiKey) throw new Error('Set VVVCODE_API_KEY before making a request.');
+  if (!apiKey) throw new Error('Configure a key for this endpoint or set STICKERWU_IMAGEGEN_API_KEY (legacy VVVCODE_API_KEY) before making a request.');
   if (!['generate', 'edit'].includes(mode)) throw new Error('Mode must be generate or edit.');
   if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('Prompt is required.');
   if (!Number.isInteger(n) || n < 1 || n > 4) throw new Error('Count must be 1 to 4.');

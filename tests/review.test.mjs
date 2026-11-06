@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { randomUUID } from 'node:crypto';
 import { createReviewSession } from '../plugins/vvvcode-image-gen/scripts/review-server.mjs';
+import { createConfigStore } from '../plugins/vvvcode-image-gen/scripts/config.mjs';
 
 function png(width = 32, height = 32, overlay = false) {
   const chunk = (name, data) => {
@@ -54,6 +55,41 @@ async function settled(state) {
 const submission = state => ({
   requestId: randomUUID(), revision: state.revision, sourceId: state.currentId,
   prompt: '只修改圈选区域，保留其他内容。', markup: dataUrl(png(32, 32, true)),
+});
+test('canvas saves and switches API profiles without a paid call, redacts keys and keeps session exports credential-free', async t => {
+  const configDir = await mkdtemp(join(tmpdir(), 'stickerwu-review-config-'));
+  t.after(() => rm(configDir, { recursive: true, force: true }));
+  const configStore = await createConfigStore({ configPath: join(configDir, 'config.json'), env: {} });
+  const { post, get, state, calls, session } = await setup(t, { configStore, apiKey: '' });
+  assert.equal((await state()).connection.hasKey, false);
+  assert.equal((await post('api/submit', submission(await state()))).status, 400);
+  const saved = await post('api/config', { action: 'save', name: 'custom', baseUrl: 'https://custom.example', apiKey: 'custom-test-private-key' });
+  assert.equal(saved.status, 200);
+  assert.doesNotMatch(await saved.text(), /custom-test-private-key|"apiKey"/);
+  assert.equal(calls.length, 0);
+  assert.equal((await post('api/config', { action: 'switch', name: 'default' })).status, 200);
+  assert.equal((await state()).connection.hasKey, false);
+  assert.equal((await post('api/config', { action: 'switch', name: 'custom' }, { origin: 'https://external.example' })).status, 403);
+  assert.equal((await post('api/config', { action: 'switch', name: 'custom' })).status, 200);
+  assert.equal((await post('api/submit', submission(await state()))).status, 202);
+  await settled(state);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].baseUrl, 'https://custom.example/v1');
+  assert.equal(calls[0].apiKey, 'custom-test-private-key');
+  for (const path of ['api/state', 'api/config']) assert.doesNotMatch(await (await get(path)).text(), /custom-test-private-key/);
+  assert.doesNotMatch(await readFile(join(session.sessionDir, 'session.json'), 'utf8'), /custom-test-private-key|"apiKey"/);
+});
+test('API settings cannot switch a connection during a running request', async t => {
+  const configDir = await mkdtemp(join(tmpdir(), 'stickerwu-busy-'));
+  t.after(() => rm(configDir, { recursive: true, force: true }));
+  const configStore = await createConfigStore({ configPath: join(configDir, 'config.json'), env: {} });
+  let release;
+  const blocked = new Promise(resolve => { release = resolve; });
+  t.after(() => release());
+  const { post, state } = await setup(t, { configStore, editImpl: async () => { await blocked; throw new Error('mock completed'); } });
+  assert.equal((await post('api/submit', submission(await state()))).status, 202);
+  assert.equal((await post('api/config', { action: 'switch', name: 'default' })).status, 409);
+  release(); await settled(state);
 });
 test('per-request model and output settings are validated, persisted and forwarded to one call',async t=>{
   const {post,state,calls,session}=await setup(t);

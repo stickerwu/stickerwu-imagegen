@@ -1,7 +1,7 @@
 {
   "name": "vvvcode-plugins",
   "interface": {
-    "displayName": "Vvvcode Plugins"
+    "displayName": "stickerwu imagegen Plugins"
   },
   "plugins": [
     {

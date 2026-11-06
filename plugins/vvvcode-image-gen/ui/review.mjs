@@ -1,5 +1,6 @@
 import { CanvasHistory, hitAnnotation, shouldSubmit } from './canvas-model.mjs';
 import { normalizeOptions, resolutionSize } from './image-options.mjs';
+import { initApiSettings } from './api-settings.mjs';
 const $ = selector => document.querySelector(selector);
 const stage = $('#stage'), world = $('#world'), source = $('#source'), overlay = $('#overlay');
 const ctx = overlay.getContext('2d'), promptInput = $('#prompt'), submit = $('#submit');
@@ -28,6 +29,7 @@ async function api(path, payload) {
   if (!response.ok) throw new Error(value.error || `HTTP ${response.status}`);
   return value;
 }
+initApiSettings({ api, changed: refresh, status: setStatus, isBusy: () => locked || state?.busy || state?.finished });
 const entryFor = node => state?.images.find(entry => entry.id === node?.imageId);
 function remember() {
   if (selected && nodes.includes(selected)) { selected.prompt = promptInput.value; selected.shapes = shapes; }
@@ -46,7 +48,8 @@ async function saveNow() {
 }
 function controls() {
   const busy = locked || state?.busy || state?.finished;
-  submit.disabled = busy || offline || !selected || !(promptInput.value.trim() || selected.imageId && shapes.length) || Boolean(selected.imageId && !ready);
+  submit.disabled = busy || offline || state?.connection?.hasKey === false || !selected || !(promptInput.value.trim() || selected.imageId && shapes.length) || Boolean(selected.imageId && !ready);
+  $('#api-settings-open').disabled = Boolean(busy);
   const readOnly=entryFor(selected)?.editable===false;
   promptInput.disabled = busy || !selected || readOnly;
   for(const field of document.querySelectorAll('[data-option],#option-resolution,#option-ratio,#option-size'))field.disabled=busy||!selected||readOnly;
@@ -311,7 +314,7 @@ async function selectNode(node, force = false, keepSelection = false) {
   renderReferences(); renderBoard(); renderHistory(); controls(); queueSave();
   if (!node?.imageId) return;
   const entry = entryFor(node), thisLoad = imageLoad;
-  $('#download').href = entry.src; $('#download').download = `vvvcode-${entry.id}.${entry.format || 'png'}`;
+  $('#download').href = entry.src; $('#download').download = `stickerwu-${entry.id}.${entry.format || 'png'}`;
   if(entry.editable===false) {
     $('#editor-title').textContent=`${entry.format.toUpperCase()} 结果`;
     $('#dimensions').textContent=`${entry.width||'—'} × ${entry.height||'—'} · 查看与下载`;
@@ -327,7 +330,7 @@ async function selectNode(node, force = false, keepSelection = false) {
     node.pixelWidth = image.naturalWidth; node.pixelHeight = image.naturalHeight;
     node.height = node.width * image.naturalHeight / image.naturalWidth; renderNode(node); positionPanels();
     elements.get(node.id).querySelector('.node-body').append(overlay); overlay.hidden = false;
-    $('#download').href = entry.src; $('#download').download = `vvvcode-${entry.id}.${entry.format || 'png'}`;
+    $('#download').href = entry.src; $('#download').download = `stickerwu-${entry.id}.${entry.format || 'png'}`;
     ready = true; draw(); queueSave();
   } catch (error) { if (thisLoad === imageLoad) { ready = false; showError(error); controls(); } }
 }
@@ -476,6 +479,7 @@ stage.addEventListener('wheel', event => {
   } else { camera.x -= event.deltaX; camera.y -= event.deltaY; applyCamera(); queueSave(); }
 }, { passive: false });
 window.addEventListener('keydown', event => {
+  if ($('#api-settings').open) return;
   if (event.target.closest('input,textarea,select') || event.isComposing) return;
   if (event.code === 'Space') { event.preventDefault(); space = true; controls(); }
   const key = event.key.toLowerCase(), mod = event.ctrlKey || event.metaKey;
@@ -654,6 +658,7 @@ $('#reference-file-input').addEventListener('change', event => { importFiles([..
 stage.addEventListener('dragover', event => { event.preventDefault(); });
 stage.addEventListener('drop', event => { event.preventDefault(); importFiles([...event.dataTransfer.files]); });
 window.addEventListener('paste', event => {
+  if ($('#api-settings').open) return;
   if (event.target.closest('input,textarea') && event.target !== promptInput) return;
   const files = [...event.clipboardData.files]; if (files.length) { event.preventDefault(); importFiles(files, event.target === promptInput); }
 });

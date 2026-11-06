@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir, copyFile, rename } from 'node:fs/promises';
 import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { requestImages, safeError, MODELS, SUPPORTED_MODELS } from './client.mjs';
+import { requestImages, safeError, normalizeBase, MODELS, SUPPORTED_MODELS } from './client.mjs';
 import { inspectPng, pngDimensions } from './image-info.mjs';
 import { normalizeOptions, OPTION_KEYS } from '../ui/image-options.mjs';
 import { imageType, imageMetadata, mimeType } from './formats.mjs';
@@ -46,14 +46,20 @@ async function readJson(req) {
 }
 const GUIDE = '\n\n标注线仅用于定位修改区域，请勿将标注线、箭头或圈画绘入最终图像。尽量保留未要求修改的内容。';
 
-// The HTTP interface accepts only session image IDs, never filesystem paths or credentials.
+// Credentials are accepted only by the explicit local settings route, never image jobs.
 export async function createReviewSession({
   image, session, outputDir = 'outputs', apiKey, baseUrl, model, size,
   quality, complexity, background, timeout = 300000, prompt = '',
   outputFormat, outputCompression, stream, partialImages, frameCount, frameDurationMs,
   editImpl = requestImages, onEvent = () => {}, idleTimeout = 3600000,
+  configStore, connectionInfo,
 } = {}) {
-  if (!apiKey) throw new Error('Set VVVCODE_API_KEY or the plugin local configuration first.');
+  if (!apiKey && !configStore) throw new Error('Set STICKERWU_IMAGEGEN_API_KEY, VVVCODE_API_KEY or the plugin local configuration first.');
+  let connection = { profile: connectionInfo?.profile, source: connectionInfo?.source || 'override',
+    apiKey: apiKey || '', baseUrl: normalizeBase(baseUrl) };
+  const publicConfig = () => ({ ...(configStore ? configStore.describe() : { profiles: [] }),
+    editable: Boolean(configStore), selectedProfile: connection.profile, baseUrl: connection.baseUrl,
+    hasKey: Boolean(connection.apiKey), source: connection.source });
   if (image && session) throw new Error('Choose an initial image or a saved session.');
   const loaded = session ? JSON.parse(await readFile(join(resolve(session), 'session.json'), 'utf8')) : null;
   if (loaded && !loaded.finished) throw new Error('This canvas is still running or was not finished. Reuse its running page; do not restart a paid request.');
@@ -98,6 +104,7 @@ export async function createReviewSession({
   const publicState = () => ({
     revision: state.revision, currentId: state.currentId, busy: state.busy, error: state.error,
     finished: state.finished, model: MODELS[model] || model, defaults, prompt, layout,
+    connection: { profile: connection.profile, baseUrl: connection.baseUrl, hasKey: Boolean(connection.apiKey) },
     preview: state.preview ? {index:state.preview.index,src:`${prefix}api/preview?v=${state.preview.version}`} : null,
     images: images.map(({ id, label, type, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly, options, warnings }) => ({
       id, label, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly, options, warnings,
@@ -117,10 +124,11 @@ export async function createReviewSession({
     ['ui/review.mjs', 'review.mjs', 'text/javascript; charset=utf-8'],
     ['ui/canvas-model.mjs', 'canvas-model.mjs', 'text/javascript; charset=utf-8'],
     ['ui/image-options.mjs', 'image-options.mjs', 'text/javascript; charset=utf-8'],
+    ['ui/api-settings.mjs', 'api-settings.mjs', 'text/javascript; charset=utf-8'],
     ['ui/review.css', 'review.css', 'text/css; charset=utf-8'],
   ]) assets.set(path, { bytes: await readFile(new URL(`../ui/${file}`, import.meta.url)), contentType });
 
-  async function runEdit(attempt, source, sourceBytes, markupBytes) {
+  async function runEdit(attempt, source, sourceBytes, markupBytes, requestConnection) {
     try {
       const roundDir = join(sessionDir, `round-${String(state.attempts.length).padStart(3, '0')}`);
       await mkdir(roundDir);
@@ -139,7 +147,8 @@ export async function createReviewSession({
       await persist();
       const references = (attempt.referenceIds || []).map(id => images.find(entry => entry.id === id).file);
       const files = await editImpl({
-        apiKey, baseUrl, mode: attempt.mode === 'edit' || references.length ? 'edit' : 'generate',
+        apiKey: requestConnection.apiKey, baseUrl: requestConnection.baseUrl,
+        mode: attempt.mode === 'edit' || references.length ? 'edit' : 'generate',
         ...attempt.options, timeout,
         prompt: apiPrompt, images: [...(sourceFile ? [sourceFile] : []), ...references], markup,
         n: 1, outputDir: roundDir,
@@ -196,6 +205,7 @@ export async function createReviewSession({
         const asset = assets.get(route); return send(200, asset.bytes, asset.contentType);
       }
       if (req.method === 'GET' && route === 'api/state') return send(200, publicState());
+      if (req.method === 'GET' && route === 'api/config') return send(200, publicConfig());
       if (req.method === 'GET' && route === 'api/preview') {
         check(state.preview,'No active preview.',404);
         return send(200,await readFile(state.preview.file),mimeType(state.preview.type));
@@ -205,11 +215,28 @@ export async function createReviewSession({
         check(entry, 'Unknown image.', 404);
         return send(200, await readFile(entry.file), mimeType(entry.type));
       }
-      check(req.method === 'POST' && ['api/submit', 'api/finish', 'api/layout', 'api/import'].includes(route), 'Not found.', 404);
+      check(req.method === 'POST' && ['api/submit', 'api/finish', 'api/layout', 'api/import', 'api/config'].includes(route), 'Not found.', 404);
       check(req.headers.origin === `http://${authority}`, 'This action must come from the local review page.', 403);
       const payload = await readJson(req);
       check(payload && typeof payload === 'object' && !Array.isArray(payload), 'Expected a JSON object.');
       check(!closing && !state.finished, 'Session has finished.', 409);
+      if (route === 'api/config') {
+        check(configStore, 'API configuration is not available in this session.', 409);
+        check(!state.busy, 'Wait for the current request before changing API settings.', 409);
+        check(['save', 'switch'].includes(payload.action) && typeof payload.name === 'string', 'Choose save or switch and a profile name.');
+        check(Object.keys(payload).every(key => ['action','name','baseUrl','apiKey'].includes(key)), 'Unknown API setting.');
+        state.busy = true;
+        try {
+          if (payload.action === 'save') {
+            check(typeof payload.baseUrl === 'string' && payload.baseUrl.trim(), 'Enter an API base URL.');
+            await configStore.saveProfile({ name: payload.name, baseUrl: payload.baseUrl, apiKey: payload.apiKey });
+          } else await configStore.useProfile(payload.name);
+          connection = configStore.resolve({ profile: payload.name });
+          apiKey = connection.apiKey;
+        } finally { state.busy = false; }
+        lastActivity = Date.now();
+        return send(200, publicConfig());
+      }
       if (route === 'api/layout') {
         const { camera, nodes, deletedImageIds } = payload;
         const finite = (value, limit = 10000000) => Number.isFinite(value) && Math.abs(value) <= limit;
@@ -288,6 +315,7 @@ export async function createReviewSession({
         return send(202, { duplicate: true, ...publicState() });
       check(!closing && !state.finished, 'Session has finished.', 409);
       check(!state.busy, 'An edit is already running.', 409);
+      check(connection.apiKey, 'Configure an API key in the canvas menu before generating.');
       check(payload.revision === state.revision, 'The image changed. Refresh before submitting.', 409);
       check(typeof payload.prompt === 'string' && payload.prompt.trim() && payload.prompt.length <= 32000,
         'Describe the edit in 1–32,000 characters.');
@@ -327,12 +355,13 @@ export async function createReviewSession({
         mode:mode==='edit'||referenceIds.length?'edit':'generate', markup:payload.markup,n:1});
       options.outputFormat ||= 'png';
       const attempt = { id: payload.requestId, sourceId: source?.id, mode, size:options.size, options,
+        connection: { profile: connection.profile, baseUrl: connection.baseUrl },
         ...(referenceIds.length ? { referenceIds } : {}),
         canvasNodeId: payload.canvasNodeId, prompt: payload.prompt.trim(),
         createdAt: new Date().toISOString(), status: 'running' };
       state.attempts.push(attempt); state.busy = true; state.error = null; lastActivity = Date.now();
       emit({ event: 'submitted', mode, requestId: attempt.id, sourceId: source?.id });
-      pending = runEdit(attempt, source, sourceBytes, markupBytes).catch(error => {
+      pending = runEdit(attempt, source, sourceBytes, markupBytes, { ...connection }).catch(error => {
         state.busy = false; state.error = safeError(error, apiKey);
         emit({ event: 'error', error: state.error });
       });

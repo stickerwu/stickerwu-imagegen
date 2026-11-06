@@ -1,6 +1,6 @@
 {
-  "name": "vvvcode-image-gen",
-  "version": "1.4.0",
+  "name": "stickerwu-imagegen",
+  "version": "1.5.0",
   "private": true,
   "description": "Codex plugin for GPT Image 2.6 generation and iterative image edits in a local annotation studio",
   "type": "module",
@@ -10,6 +10,6 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs && node --check plugins/vvvcode-image-gen/scripts/image-info.mjs && node --check plugins/vvvcode-image-gen/scripts/review-server.mjs && node --check plugins/vvvcode-image-gen/scripts/annotate.mjs && node --check plugins/vvvcode-image-gen/scripts/formats.mjs && node --check plugins/vvvcode-image-gen/scripts/stream.mjs && node --check plugins/vvvcode-image-gen/ui/review.mjs && node --check plugins/vvvcode-image-gen/ui/image-options.mjs && node --check plugins/vvvcode-image-gen/ui/canvas-model.mjs"
+    "check": "node --check plugins/vvvcode-image-gen/scripts/config.mjs && node --check plugins/vvvcode-image-gen/ui/api-settings.mjs && node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs && node --check plugins/vvvcode-image-gen/scripts/image-info.mjs && node --check plugins/vvvcode-image-gen/scripts/review-server.mjs && node --check plugins/vvvcode-image-gen/scripts/annotate.mjs && node --check plugins/vvvcode-image-gen/scripts/formats.mjs && node --check plugins/vvvcode-image-gen/scripts/stream.mjs && node --check plugins/vvvcode-image-gen/ui/review.mjs && node --check plugins/vvvcode-image-gen/ui/image-options.mjs && node --check plugins/vvvcode-image-gen/ui/canvas-model.mjs"
   }
 }

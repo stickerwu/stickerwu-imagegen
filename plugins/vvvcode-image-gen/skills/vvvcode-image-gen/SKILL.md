@@ -1,9 +1,12 @@
 ---
 name: vvvcode-image-gen
-description: Use when the user invokes VVVCode Image Gen, requests GPT Image 2.6 Sunburst or Flare through VVVCode, or wants API image generation, an on-demand infinite canvas for generation and annotated edits, markup-guided edits, or GIF output with this plugin.
+description: Use when the user invokes stickerwu imagegen or its former name VVVCode Image Gen, wants configurable image API profiles, GPT Image 2.6 Sunburst or Flare generation, an on-demand infinite canvas, annotated edits, or GIF output with this plugin.
 ---
 
-# VVVCode Image Gen
+# stickerwu imagegen
+
+Formerly VVVCode Image Gen. The internal `vvvcode-image-gen` plugin/skill ID and
+script paths stay stable so existing installations update in place.
 
 Resolve `../../scripts/generate.mjs` relative to this SKILL.md. Requires Node.js
 22+; no npm install. Use this plugin's API directly for requested GIFs; a GIF
@@ -73,9 +76,18 @@ that a new chat response will appear automatically.
 
 Run `node <script> --get-config` when starting an image request. Capability
 questions can be answered from code and the compatibility reference without setup.
-Use `VVVCODE_API_KEY` or the plugin's independent local configuration. Never reuse
+Use `STICKERWU_IMAGEGEN_API_KEY` (legacy `VVVCODE_API_KEY` remains supported) or
+the plugin's independent local configuration. Never reuse
 another provider's credentials or expose a key in output, arguments, Git or chat.
 If absent, ask the user to set the key locally; `--key-stdin` supports secure input.
+
+For configuration requests, read [API connections](references/api-profiles.md).
+The canvas menu **API 设置** saves and switches named base URLs and per-profile
+keys. It works even when no key exists yet. Saving/switching never generates.
+Use `--profile NAME` in either CLI to isolate that run from environment overrides.
+Preserve the old configuration path `~/.config/vvvcode-image-gen/config.json`;
+do not move/delete it or print its contents. The active connection is mirrored
+to legacy fields for older versions. Never inherit a key for a different endpoint.
 
 | Selection | Actual model |
 | --- | --- |

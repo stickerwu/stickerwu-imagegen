@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VVVCode · 图片画布</title>
+  <title>stickerwu imagegen · 图片画布</title>
   <link rel="stylesheet" href="ui/review.css"><script type="module" src="ui/review.mjs"></script>
 </head>
 <body>
@@ -53,11 +53,12 @@
     <div class="save-indicator"><span id="save-status">本地画布</span></div>
   </header>
   <div id="menu" class="popover document-menu panel" hidden>
-    <div class="menu-brand">VVVCode <span>CANVAS</span></div>
+    <div class="menu-brand">stickerwu imagegen <span>CANVAS</span></div>
     <button id="new-frame"><svg><use href="#i-frame"/></svg>新建 AI 图片框<kbd>A</kbd></button>
     <button id="menu-import"><svg><use href="#i-image"/></svg>导入图片</button>
     <button id="menu-fit"><svg><use href="#i-fit"/></svg>显示全部<kbd>Shift 1</kbd></button>
     <button id="shortcuts-toggle">键盘快捷键<span>?</span></button>
+    <button id="api-settings-open">API 设置<span>连接与密钥</span></button>
     <div class="menu-divider"></div>
     <button id="finish"><svg><use href="#i-check"/></svg>保存并结束</button>
   </div>
@@ -124,6 +125,18 @@
   <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><input id="reference-file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
   <canvas id="source" hidden></canvas><canvas id="overlay" hidden aria-label="在选中图片上绘制标注"></canvas>
   <textarea id="inline-text" class="inline-text" maxlength="2000" aria-label="画布标注文字" placeholder="输入标注，Enter 完成" hidden></textarea>
-  <div id="done" class="done" hidden><div class="panel"><svg><use href="#i-check"/></svg><h1>画布已保存</h1><p>图片、位置、标注和修改记录已保存到输出目录。</p><span>VVVCode Canvas</span></div></div>
+  <dialog id="api-settings" class="api-settings panel" aria-labelledby="api-title">
+    <div class="panel-heading"><strong id="api-title">API 设置</strong><button id="api-close" class="icon-button" aria-label="关闭 API 设置"><svg><use href="#i-close"/></svg></button></div>
+    <p id="api-current" class="api-current"></p>
+    <form id="api-form" class="settings-grid" autocomplete="off">
+      <label class="wide">已保存的连接<select id="api-profiles" aria-label="已保存的连接"></select></label>
+      <label class="wide">连接名称<input id="api-name" required maxlength="64" pattern="[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,63}" placeholder="例如 work 或 personal"></label>
+      <label class="wide">API 地址<input id="api-url" type="url" required placeholder="https://api.example.com/v1" spellcheck="false"></label>
+      <label class="wide">API Key<input id="api-key" type="password" maxlength="8192" autocomplete="new-password" spellcheck="false"></label>
+      <p id="api-message" class="settings-note wide" role="status" aria-live="polite"></p>
+      <div class="api-actions wide"><button id="api-switch" type="button" class="api-secondary">切换连接</button><button type="submit" class="blue-button">保存并使用</button></div>
+    </form>
+  </dialog>
+  <div id="done" class="done" hidden><div class="panel"><svg><use href="#i-check"/></svg><h1>画布已保存</h1><p>图片、位置、标注和修改记录已保存到输出目录。</p><span>stickerwu imagegen</span></div></div>
 </body>
 </html>
