@@ -91,8 +91,8 @@ export async function createReviewSession({
   const publicState = () => ({
     revision: state.revision, currentId: state.currentId, busy: state.busy, error: state.error,
     finished: state.finished, model: MODELS[model] || model, prompt, layout,
-    images: images.map(({ id, label, type, width, height, sourceId, canvasNodeId, mode, prompt }) => ({
-      id, label, width, height, sourceId, canvasNodeId, mode, prompt, format: type, requiresNormalization: type !== 'png',
+    images: images.map(({ id, label, type, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly }) => ({
+      id, label, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly, format: type, requiresNormalization: type !== 'png',
       src: `${prefix}image/${id}`,
     })),
   });
@@ -106,6 +106,7 @@ export async function createReviewSession({
   for (const [path, file, contentType] of [
     ['', 'index.html', 'text/html; charset=utf-8'],
     ['ui/review.mjs', 'review.mjs', 'text/javascript; charset=utf-8'],
+    ['ui/canvas-model.mjs', 'canvas-model.mjs', 'text/javascript; charset=utf-8'],
     ['ui/review.css', 'review.css', 'text/css; charset=utf-8'],
   ]) assets.set(path, { bytes: await readFile(new URL(`../ui/${file}`, import.meta.url)), contentType });
 
@@ -126,10 +127,11 @@ export async function createReviewSession({
       const apiPrompt = attempt.prompt + (attempt.mode === 'edit' ? GUIDE : '');
       await writeFile(join(roundDir, 'prompt.txt'), apiPrompt, 'utf8');
       await persist();
+      const references = (attempt.referenceIds || []).map(id => images.find(entry => entry.id === id).file);
       const files = await editImpl({
-        apiKey, baseUrl, mode: attempt.mode, model, size: attempt.mode === 'generate' ? attempt.size : size,
+        apiKey, baseUrl, mode: attempt.mode === 'edit' || references.length ? 'edit' : 'generate', model, size: attempt.mode === 'generate' ? attempt.size : size,
         quality, complexity, background, timeout,
-        prompt: apiPrompt, images: sourceFile ? [sourceFile] : [], markup,
+        prompt: apiPrompt, images: [...(sourceFile ? [sourceFile] : []), ...references], markup,
         outputFormat: 'png', n: 1, outputDir: roundDir,
       });
       if (!Array.isArray(files) || files.length !== 1) throw new Error('Expected exactly one edited PNG.');
@@ -182,11 +184,16 @@ export async function createReviewSession({
       check(payload && typeof payload === 'object' && !Array.isArray(payload), 'Expected a JSON object.');
       check(!closing && !state.finished, 'Session has finished.', 409);
       if (route === 'api/layout') {
-        const { camera, nodes } = payload;
+        const { camera, nodes, deletedImageIds } = payload;
         const finite = (value, limit = 10000000) => Number.isFinite(value) && Math.abs(value) <= limit;
         check(camera && finite(camera.x) && finite(camera.y) && camera.zoom >= .05 && camera.zoom <= 5,
           'Invalid canvas camera.');
         check(Array.isArray(nodes) && nodes.length <= 300, 'Canvas allows up to 300 frames.');
+        const knownImages = new Set(images.map(entry => entry.id));
+        const validRefs = refs => Array.isArray(refs) && refs.length <= 4 &&
+          new Set(refs).size === refs.length && refs.every(id => knownImages.has(id));
+        check(deletedImageIds === undefined || Array.isArray(deletedImageIds) &&
+          deletedImageIds.length <= images.length && deletedImageIds.every(id => knownImages.has(id)), 'Unknown deleted canvas image.');
         const ids = new Set();
         for (const node of nodes) {
           check(node && /^[a-f0-9-]{36}$/i.test(node.id) && !ids.has(node.id), 'Invalid canvas node ID.');
@@ -195,6 +202,7 @@ export async function createReviewSession({
           check(finite(node.x) && finite(node.y) && node.width >= 64 && node.width <= 5000 &&
             node.height >= 32 && node.height <= 10000, 'Invalid frame dimensions.');
           check(typeof node.prompt === 'string' && node.prompt.length <= 32000, 'Invalid frame prompt.');
+          check(node.referenceIds === undefined || validRefs(node.referenceIds), 'Invalid frame references.');
           check(Array.isArray(node.shapes) && node.shapes.length <= 2000, 'Too many annotations.');
           let points = 0;
           for (const shape of node.shapes) {
@@ -207,7 +215,7 @@ export async function createReviewSession({
           }
         }
         // A separate serialized file avoids racing with a generation's session manifest.
-        const saved = JSON.stringify({ camera, nodes });
+        const saved = JSON.stringify({ camera, nodes, ...(deletedImageIds === undefined ? {} : { deletedImageIds }) });
         layoutPending = layoutPending.catch(() => {}).then(async () => {
           await writeFile(join(sessionDir, 'canvas.json.tmp'), saved);
           await rename(join(sessionDir, 'canvas.json.tmp'), join(sessionDir, 'canvas.json'));
@@ -227,8 +235,10 @@ export async function createReviewSession({
         state.busy = true;
         try {
           await writeFile(file, bytes, { flag: 'wx' });
-          images.push({ id, file, type, label: typeof payload.name === 'string' ? payload.name.slice(0, 100) : '导入图片', ...dimensions });
-          state.currentId = id; state.revision++; await persist({ busy: false });
+          images.push({ id, file, type, label: typeof payload.name === 'string' ? payload.name.slice(0, 100) : '导入图片',
+            ...(payload.referenceOnly === true ? { referenceOnly: true } : {}), ...dimensions });
+          if (payload.referenceOnly !== true) state.currentId = id;
+          state.revision++; await persist({ busy: false });
         } finally { state.busy = false; }
         lastActivity = Date.now(); emit({ event: 'imported', files: [file] });
         return send(200, publicState());
@@ -252,6 +262,9 @@ export async function createReviewSession({
       check(['generate', 'edit'].includes(mode), 'Unknown image operation.');
       check(payload.canvasNodeId === undefined || /^[a-f0-9-]{36}$/i.test(payload.canvasNodeId), 'Invalid frame ID.');
       const source = mode === 'edit' ? images.find(item => item.id === payload.sourceId) : undefined;
+      const referenceIds = payload.referenceIds || [];
+      check(Array.isArray(referenceIds) && referenceIds.length <= 4 && new Set(referenceIds).size === referenceIds.length &&
+        referenceIds.every(id => id !== source?.id && images.some(entry => entry.id === id)), 'Choose up to four distinct session reference images.');
       let sourceBytes, firstInfo = source;
       if (mode === 'edit') {
         check(source, 'Unknown source image.');
@@ -272,6 +285,7 @@ export async function createReviewSession({
           'Markup must contain transparent pixels.');
       }
       const attempt = { id: payload.requestId, sourceId: source?.id, mode, size: payload.size || '1024x1024',
+        ...(referenceIds.length ? { referenceIds } : {}),
         canvasNodeId: payload.canvasNodeId, prompt: payload.prompt.trim(),
         createdAt: new Date().toISOString(), status: 'running' };
       state.attempts.push(attempt); state.busy = true; state.error = null; lastActivity = Date.now();

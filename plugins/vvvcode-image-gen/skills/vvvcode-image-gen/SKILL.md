@@ -30,15 +30,27 @@ Start the process in a session/background helper that stays alive, open the
 `--open` opens the default system browser if no browser tool is used.
 Do not hold up opening the page with an additional confirmation.
 
-Images can be moved/resized on a pan/zoom canvas. Each image retains its own
-annotations and prompt. The user selects an image, draws and writes their edit,
-then clicks **按标注修改**. That action authorizes one API edit. The backend sends
+The canvas follows the user's Cowart reference: light gray background, white
+floating panels, gray icons, blue selection, bottom tools and a prompt below
+the selected image. Images support single/multiple selection, dragging,
+corner resizing, copy/delete and undo/redo. Undo never replays an API request.
+Each image retains its own annotations, prompt and up to four references.
+Use inline text and the eraser rather than requiring side-panel text entry.
+
+The user selects an image and draws/writes their edit. The small **按标注修改**
+action opens its composer; the composer send button or Enter authorizes one
+API edit. Shift+Enter inserts a line and Chinese IME confirmation does not
+submit. The backend sends
 source bytes, the separate transparent markup PNG and the prompt to
 `/images/edits`; a new result appears beside its source and becomes selected.
 The source and its markup remain available.
 
-**＋ AI 图片框** creates a blank frame with a ratio and prompt; **生成图片**
-sends one `/images/generations` request and fills that frame. Users can also
+**AI 图片框** (A) creates a blank frame with a ratio and prompt; **生成图片**
+sends one `/images/generations` request and fills that frame when no references
+are attached. Explicit references use `/images/edits` with those image files;
+this is intentional reference-guided generation, never failure fallback.
+For image edits, the selected source is first and markup applies only to it.
+Users can also
 import/drop/paste still images, focus any previous image and continue editing.
 Opening/importing/drawing/saving never makes a paid request.
 Do not send a second request after a `submitted` or `generated` event.

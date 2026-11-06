@@ -2,58 +2,108 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VVVCode · 无限画布</title>
+  <title>VVVCode · 图片画布</title>
   <link rel="stylesheet" href="ui/review.css"><script type="module" src="ui/review.mjs"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><span class="brand-icon">V</span><strong>VVVCode</strong><span class="brand-divider">/</span><span class="brand-sub">Canvas</span></div>
-    <span class="session-tag"><i></i><span id="save-status">本地画布</span></span>
-    <button id="new-frame" class="new-button">＋ AI 图片框</button>
-    <button id="import" class="quiet">导入图片</button><input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
-    <button id="finish" class="quiet">保存并结束</button>
-  </header>
-  <main>
-    <section id="stage" class="stage" aria-label="可平移缩放的无限画布" tabindex="0">
-      <div id="world" class="world"><svg id="connections" aria-hidden="true"></svg></div>
-      <div id="empty" class="empty"><span class="empty-icon">✧</span><h1>让灵感，有处落笔。</h1><p>创建 AI 图片框，或把图片拖进来。<br>圈画、生成、对比，留在同一张画布上。</p><button id="empty-create" class="new-button">＋ 创建第一张图片</button></div>
-      <div class="board-caption"><span>无限画布</span><span id="image-count">0 张图片</span></div>
-      <div class="toolbar" role="toolbar" aria-label="画布与标注工具">
-        <button data-tool="select" aria-pressed="true" title="选择 / 拖动图片">↖<span>选择</span></button>
-        <button data-tool="hand" aria-pressed="false" title="平移画布，或按住空格拖拽">✋<span>平移</span></button>
-        <span class="divider"></span>
-        <button data-tool="pen" aria-pressed="false" title="自由画笔">✎<span>画笔</span></button>
-        <button data-tool="ellipse" aria-pressed="false" title="圈选区域">◯<span>圈选</span></button>
-        <button data-tool="rectangle" aria-pressed="false" title="矩形区域">▭<span>矩形</span></button>
-        <button data-tool="arrow" aria-pressed="false" title="箭头">↗<span>箭头</span></button>
-        <button data-tool="text" aria-pressed="false" title="在图片上添加文字标注">T<span>文字</span></button>
-        <span class="divider"></span><input id="color" type="color" value="#e14d9d" aria-label="标注颜色">
-        <input id="width" type="range" min="2" max="24" value="7" aria-label="画笔粗细">
-        <button id="undo" title="撤销当前图片的上一步标注">↶</button><button id="clear" title="清空当前图片的标注">⌫</button>
-      </div>
-      <div class="navigation-hint">空格＋拖拽平移 · Ctrl / ⌘＋滚轮缩放</div>
-      <div class="zoom"><button id="zoom-out" aria-label="缩小">−</button><button id="zoom-fit" title="显示全部图片">适应画布</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="放大">＋</button></div>
-    </section>
-    <aside class="sidebar">
-      <div class="edit-card">
-        <span class="step-label" id="operation-label">IMAGE CANVAS</span><h2 id="editor-title">在画布上开始创作。</h2>
-        <p class="help" id="editor-help">选中图片进行标注改图，或创建 AI 图片框，从一句描述开始。</p>
-        <div id="frame-options" hidden><label class="field-label" for="ratio">图片比例</label><select id="ratio"><option value="1024x1024">1:1 · 正方形</option><option value="1024x1536">2:3 · 竖版</option><option value="1536x1024">3:2 · 横版</option><option value="1536x864">16:9 · 横屏</option><option value="864x1536">9:16 · 竖屏</option></select></div>
-        <label class="field-label" for="prompt" id="prompt-label">描述或修改要求</label>
-        <textarea id="prompt" maxlength="32000" rows="6" placeholder="例如：把圈里的帽子改成草绿色，保留人物和其他背景。"></textarea>
-        <div id="text-options" hidden><label class="field-label" for="annotation-text">标注文字（填写后在图片上点击）</label><input id="annotation-text" type="text" maxlength="2000" placeholder="这里改为绿色"></div>
-        <p id="dimensions" class="hint">原图和标注分别保存</p>
-        <div id="status" class="status" role="status" aria-live="polite">按需打开，提交后自动生成。</div>
-        <button id="submit" class="primary" disabled><span id="submit-label">选择图片或新建框</span><span>↗</span></button>
-        <p class="billing">每次有效提交，调用一次可能计费的 API 请求。</p>
-      </div>
-      <div class="details"><span class="details-label">当前模型</span><strong id="model">—</strong><p>新版本放在原图旁边，原图和标注保留。<br>标注层按原图像素导出，缩放不影响定位。</p></div>
-      <div class="history-heading"><h2>画布图片</h2><span>点击定位</span></div><div id="history" class="history" aria-label="画布图片列表"></div>
-      <div class="file-actions"><a id="download" download hidden>保存选中图片 ↙</a><button id="export-markup" class="text-button" disabled>导出透明标注层 ↙</button></div>
-      <p class="privacy">密钥留在本地服务端。提交时，选中的图片、标注与要求发送至所配置的 API 服务商。</p>
-    </aside>
+  <svg class="icon-defs" aria-hidden="true"><defs>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8 4 3 9l5 5M3 9h11a6 6 0 0 1 0 12"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m16 4 5 5-5 5M21 9H10a6 6 0 0 0 0 12"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V3H3v13h5"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-select" viewBox="0 0 24 24"><path d="m5 3 15 10-7 1-3 7Z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 12V5a2 2 0 0 1 4 0v6-7a2 2 0 0 1 4 0v8-5a2 2 0 0 1 4 0v8c0 5-3 7-7 7-3 0-4-1-6-4l-4-5a2 2 0 0 1 3-3l2 2Z"/></symbol>
+    <symbol id="i-frame" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5M12 7v10M7 12h10"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m9 5-7 9 7 7h6L22 12l-9-9ZM6 10l9 9M9 21h13"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6V3h16v3M12 3v18M8 21h8"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 20 20 4M8 4h12v12"/></symbol>
+    <symbol id="i-rectangle" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/></symbol>
+    <symbol id="i-ellipse" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="8"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 24 24"><path d="m5 16 4 4 12-12-4-4ZM3 22h9M12 9l4 4"/></symbol>
+    <symbol id="i-grip" viewBox="0 0 24 24"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 20V4M5 11l7-7 7 7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><rect x="8" y="8" width="8" height="8"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 16v5h16v-5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+  </defs></svg>
+  <main id="stage" class="stage" aria-label="图片无限画布" tabindex="0">
+    <div id="world" class="world"><svg id="connections" aria-hidden="true"></svg></div>
+    <div id="empty" class="empty"><svg class="empty-icon"><use href="#i-frame"/></svg><h1>从一个画面开始</h1><p>创建 AI 图片框，或把图片拖到这里</p><button id="empty-create" class="blue-button">创建 AI 图片框 <kbd>A</kbd></button></div>
+    <div id="marquee" class="marquee" hidden></div>
   </main>
-  <canvas id="source" hidden></canvas><canvas id="overlay" hidden aria-label="在选中图片上拖动标注"></canvas>
-  <div id="done" class="done" hidden><div><span class="done-icon">✓</span><h1>画布和创作已保存。</h1><p>图片、位置、标注与修改记录已保存至输出目录，可在下一次需要时重新打开。</p></div></div>
+  <header class="topbar">
+    <div class="document-bar panel">
+      <button id="menu-toggle" class="icon-button" title="画布菜单" aria-label="画布菜单" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+      <button id="document-toggle" class="document-title" aria-label="画布图片列表" aria-expanded="false"><span>图片画布</span><svg><use href="#i-chevron"/></svg></button>
+      <span class="divider"></span>
+      <button id="undo" class="icon-button" title="撤销 · Ctrl/⌘ Z" aria-label="撤销"><svg><use href="#i-undo"/></svg></button>
+      <button id="redo" class="icon-button" title="重做 · Ctrl/⌘ Shift Z" aria-label="重做"><svg><use href="#i-redo"/></svg></button>
+      <button id="delete" class="icon-button" title="删除选中框 · Delete" aria-label="删除选中框"><svg><use href="#i-trash"/></svg></button>
+      <button id="duplicate" class="icon-button" title="复制选中框 · Ctrl/⌘ D" aria-label="复制选中框"><svg><use href="#i-copy"/></svg></button>
+      <button id="more-toggle" class="icon-button" title="更多操作" aria-label="更多操作" aria-expanded="false"><svg><use href="#i-more"/></svg></button>
+    </div>
+    <div class="save-indicator"><span id="save-status">本地画布</span></div>
+  </header>
+  <div id="menu" class="popover document-menu panel" hidden>
+    <div class="menu-brand">VVVCode <span>CANVAS</span></div>
+    <button id="new-frame"><svg><use href="#i-frame"/></svg>新建 AI 图片框<kbd>A</kbd></button>
+    <button id="menu-import"><svg><use href="#i-image"/></svg>导入图片</button>
+    <button id="menu-fit"><svg><use href="#i-fit"/></svg>显示全部<kbd>Shift 1</kbd></button>
+    <button id="shortcuts-toggle">键盘快捷键<span>?</span></button>
+    <div class="menu-divider"></div>
+    <button id="finish"><svg><use href="#i-check"/></svg>保存并结束</button>
+  </div>
+  <div id="more-menu" class="popover more-menu panel" hidden>
+    <a id="download" download hidden><svg><use href="#i-download"/></svg>下载选中图片</a>
+    <button id="export-markup"><svg><use href="#i-download"/></svg>导出透明标注</button>
+    <button id="clear"><svg><use href="#i-eraser"/></svg>清空当前图片标注</button>
+  </div>
+  <section id="gallery" class="popover gallery panel" hidden aria-label="画布图片列表"><div class="panel-heading"><strong>画布图片</strong><span id="image-count"></span></div><div id="history" class="history"></div></section>
+  <aside id="style-panel" class="style-panel panel" aria-label="标注样式">
+    <div class="palette-heading">样式<span id="style-label">标注</span></div>
+    <div id="colors" class="colors" role="group" aria-label="标注颜色"></div>
+    <div class="stroke-heading"><span>粗细</span><span id="width-value">7</span></div><input id="width" type="range" min="2" max="24" value="7" aria-label="画笔粗细">
+    <div class="stroke-presets" role="group" aria-label="线条粗细"><button data-width="3">S</button><button data-width="7" aria-pressed="true">M</button><button data-width="12">L</button><button data-width="20">XL</button></div>
+    <input id="color" type="color" value="#e03131" aria-label="自定义标注颜色">
+    <div id="frame-options" class="frame-options" hidden><div class="palette-heading">图片比例</div><div id="ratio-presets" class="ratio-presets" role="group" aria-label="图片比例"><button data-size="1024x1024">1:1</button><button data-size="1024x1536">2:3</button><button data-size="1536x1024">3:2</button><button data-size="1536x864">16:9</button><button data-size="864x1536">9:16</button></div><span id="frame-size" class="hint"></span></div>
+  </aside>
+  <section id="composer" class="composer panel" hidden aria-label="图片生成与修改">
+    <div class="composer-heading"><strong id="editor-title">AI 图片生成</strong><span id="dimensions"></span><button id="composer-close" class="icon-button small" title="收起输入面板" aria-label="收起输入面板"><svg><use href="#i-close"/></svg></button></div>
+    <div class="reference-row"><div id="reference-chips" class="reference-chips"></div><button id="references-toggle" class="reference-button" title="添加参考图" aria-expanded="false"><svg><use href="#i-image"/></svg><span>参考图</span><svg class="tiny"><use href="#i-plus"/></svg></button></div>
+    <textarea id="prompt" maxlength="32000" rows="3" aria-label="描述或修改要求" placeholder="描述你想生成的图片"></textarea>
+    <div class="composer-footer"><span class="composer-hint">Enter 发送 · Shift Enter 换行</span><button id="submit" class="send-button" disabled><span id="submit-label">生成图片</span><svg><use href="#i-send"/></svg></button></div>
+  </section>
+  <div id="reference-picker" class="popover reference-picker panel" hidden><div class="panel-heading"><strong>选择参考图</strong><span>最多 4 张</span></div><div id="reference-list" class="reference-list"></div><button id="reference-import" class="reference-import"><svg><use href="#i-plus"/></svg>从电脑导入参考图</button></div>
+  <div id="selection-actions" class="selection-actions panel" hidden><span id="selection-label"></span><button id="open-composer">修改图片</button></div>
+  <div id="toolbar" class="toolbar panel" role="toolbar" aria-label="画布工具">
+    <button id="toolbar-grip" class="toolbar-grip" title="拖动工具栏" aria-label="拖动工具栏"><svg><use href="#i-grip"/></svg></button>
+    <button data-tool="pen" class="annotation-button" title="标注 · C" aria-label="标注"><svg><use href="#i-mark"/></svg><span>标注</span></button><span class="divider"></span>
+    <button data-tool="select" aria-pressed="true" title="选择 · V" aria-label="选择"><svg><use href="#i-select"/></svg></button>
+    <button data-tool="hand" aria-pressed="false" title="抓手 · H / 按住空格" aria-label="抓手"><svg><use href="#i-hand"/></svg></button>
+    <button id="tool-frame" title="新建 AI 图片框 · A" aria-label="新建 AI 图片框"><svg><use href="#i-frame"/></svg></button><span class="divider"></span>
+    <button id="import" title="导入图片" aria-label="导入图片"><svg><use href="#i-image"/></svg></button>
+    <button data-tool="pen" aria-pressed="false" title="画笔 · D" aria-label="画笔"><svg><use href="#i-pen"/></svg></button>
+    <button data-tool="eraser" aria-pressed="false" title="橡皮擦 · E" aria-label="橡皮擦"><svg><use href="#i-eraser"/></svg></button>
+    <button data-tool="text" aria-pressed="false" title="文字 · T" aria-label="文字"><svg><use href="#i-text"/></svg></button>
+    <button data-tool="arrow" aria-pressed="false" title="箭头 · L" aria-label="箭头"><svg><use href="#i-arrow"/></svg></button>
+    <button data-tool="rectangle" aria-pressed="false" title="矩形 · R" aria-label="矩形"><svg><use href="#i-rectangle"/></svg></button>
+    <button data-tool="ellipse" aria-pressed="false" title="椭圆 · O" aria-label="椭圆"><svg><use href="#i-ellipse"/></svg></button>
+  </div>
+  <nav class="zoom panel" aria-label="视图缩放"><button id="zoom-out" class="icon-button" aria-label="缩小"><svg><use href="#i-minus"/></svg></button><button id="zoom-value" title="重置为 100%">100%</button><button id="zoom-in" class="icon-button" aria-label="放大"><svg><use href="#i-plus"/></svg></button><span class="divider"></span><button id="zoom-fit" class="icon-button" title="显示全部 · Shift 1" aria-label="显示全部"><svg><use href="#i-fit"/></svg></button></nav>
+  <div class="canvas-footer"><span id="model"></span><span>空格拖动画布 · Ctrl / ⌘ 滚轮缩放</span></div>
+  <div id="status" class="status" role="status" aria-live="polite">选中图片进行标注，或创建 AI 图片框</div>
+  <div id="shortcuts" class="shortcuts panel" hidden><div class="panel-heading"><strong>键盘快捷键</strong><button id="shortcuts-close" class="icon-button" aria-label="关闭快捷键"><svg><use href="#i-close"/></svg></button></div><dl><dt>选择 / 抓手</dt><dd>V / H</dd><dt>新建 AI 图片框</dt><dd>A</dd><dt>标注 / 画笔</dt><dd>C / D</dd><dt>橡皮擦 / 文字</dt><dd>E / T</dd><dt>箭头 / 矩形 / 椭圆</dt><dd>L / R / O</dd><dt>撤销 / 重做</dt><dd>Ctrl/⌘ Z / Shift Z</dd><dt>复制选中框</dt><dd>Ctrl/⌘ D</dd><dt>删除选中框</dt><dd>Delete / Backspace</dd><dt>显示全部 / 重置缩放</dt><dd>Shift 1 / Shift 0</dd><dt>添加或取消多选</dt><dd>Shift 点击 / 拖框</dd><dt>退出工具 / 收起面板</dt><dd>Esc</dd></dl></div>
+  <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><input id="reference-file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+  <canvas id="source" hidden></canvas><canvas id="overlay" hidden aria-label="在选中图片上绘制标注"></canvas>
+  <textarea id="inline-text" class="inline-text" maxlength="2000" aria-label="画布标注文字" placeholder="输入标注，Enter 完成" hidden></textarea>
+  <div id="done" class="done" hidden><div class="panel"><svg><use href="#i-check"/></svg><h1>画布已保存</h1><p>图片、位置、标注和修改记录已保存到输出目录。</p><span>VVVCode Canvas</span></div></div>
 </body>
 </html>

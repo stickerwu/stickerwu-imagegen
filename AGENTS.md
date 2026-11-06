@@ -9,3 +9,6 @@
 - Document live-provider compatibility honestly; mock tests are not live tests.
 - Keep annotation canvases in source-image pixel coordinates and upload the transparent overlay separately.
 - Keep the review server on loopback with credentials server-side; each explicit Submit authorizes one edit, with no automatic paid retries.
+- Keep the canvas UI aligned with the user's Cowart reference: neutral light-gray canvas, white floating panels, gray icons, blue selection and contextual composer.
+- Canvas undo/redo must change local layout/markup only, never replay generation requests; keep deleted image files and persist removed-frame state.
+- Respect Chinese IME composition and Shift+Enter in both prompt and inline annotation text.

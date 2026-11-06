@@ -208,3 +208,37 @@ test('a finished canvas can reopen with its images and layout without resubmitti
   assert.equal(value.finished, false);
   await reopened.close();
 });
+
+test('explicit references use edits while retaining generation-frame placement and source integrity', async t => {
+  const { post, state, calls } = await setup(t);
+  const initial = await state();
+  const imported = await post('api/import', { image: dataUrl(png()), name: '参考图', referenceOnly: true });
+  assert.equal(imported.status, 200);
+  const current = await state(), reference = current.images.at(-1);
+  assert.equal(reference.referenceOnly, true);
+  assert.equal(current.currentId, initial.currentId);
+  const payload = { requestId: randomUUID(), revision: current.revision, mode: 'generate',
+    canvasNodeId: randomUUID(), referenceIds: [reference.id], prompt: 'Use this palette for a kitten.', size: '1024x1024' };
+  assert.equal((await post('api/submit', { ...payload, referenceIds: ['unknown'] })).status, 400);
+  assert.equal((await post('api/submit', { ...payload, referenceIds: Array(5).fill(reference.id) })).status, 400);
+  assert.equal((await post('api/submit', payload)).status, 202);
+  const result = await settled(state);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].mode, 'edit');
+  assert.equal(calls[0].images.length, 1);
+  assert.deepEqual(await readFile(calls[0].images[0]), png());
+  assert.equal(result.images.at(-1).mode, 'generate');
+  assert.equal(result.images.at(-1).canvasNodeId, payload.canvasNodeId);
+});
+
+test('deleted canvas assets and reference selections persist and reject unknown IDs', async t => {
+  const { post, state } = await setup(t);
+  const s = await state(), imageId = s.currentId;
+  const layout = { camera: { x: 0, y: 0, zoom: 1 }, deletedImageIds: [imageId], nodes: [
+    { id: randomUUID(), x: 0, y: 0, width: 360, height: 360, prompt: '', shapes: [], referenceIds: [imageId] },
+  ] };
+  assert.equal((await post('api/layout', layout)).status, 200);
+  assert.deepEqual((await state()).layout, layout);
+  assert.equal((await post('api/layout', { ...layout, deletedImageIds: ['unknown'] })).status, 400);
+  assert.equal((await post('api/layout', { ...layout, nodes: [{ ...layout.nodes[0], referenceIds: ['unknown'] }] })).status, 400);
+});

@@ -41,20 +41,48 @@ arguments. Configuration is the same independent config/env as `generate.mjs`.
 
 ## User flow and artifacts
 
-The page is a pan/zoom infinite canvas with movable, resizable image cards.
-Use **平移**, Space-drag or middle-drag to pan; Ctrl/Command-wheel or the zoom
-buttons to zoom, and **适应画布** to show all cards. Each image has its own
-pen/ellipse/rectangle/arrow/text annotations, color, width, undo and clear.
+The page follows Cowart's neutral light-gray canvas, white floating panels,
+gray/black icons and blue selection. Document actions sit top-left, styles
+top-right, tools in a draggable bottom toolbar. The prompt follows the selected
+frame rather than occupying a fixed sidebar. This is an independent local UI,
+not a tldraw/Cowart runtime or a general-purpose Cowart document editor.
+
+Click to select; Shift-click or drag a selection rectangle for multiple frames.
+Drag selected frames together; resize a single frame from any corner. Click
+blank canvas to deselect. Use **抓手**, Space-drag or middle-drag to pan;
+Ctrl/Command-wheel or zoom buttons to zoom, **显示全部** to fit all frames.
+Each image retains pen/ellipse/rectangle/arrow/text annotations in its own
+source-pixel bounds. The eraser removes a hit annotation stroke. With the text
+tool, click an image and type directly there; Enter finishes, Shift+Enter adds
+a line and Esc cancels. Source-pixel annotations remain tied to that image.
 
 Select an image, draw and enter instructions, then click **按标注修改** for one
-edit request. The new result appears beside its source with a connection; the
-source and its markup remain available. **＋ AI 图片框** adds an empty frame:
-choose its ratio, enter a prompt and click **生成图片** for one generation
-request that fills that frame. The actual result dimensions may differ from
+edit request. Clicking the image's small **按标注修改** action first opens the
+composer; its send button/Enter authorizes the request. With annotations, an
+empty composer uses the explicit annotation-guided instruction. The new result
+appears beside its source with a connection; the source and markup remain.
+**AI 图片框** (A) adds an empty frame: choose its ratio, enter a prompt and
+click **生成图片** or press Enter for one request that fills that frame.
+Shift+Enter adds a line. IME composition/confirmation and held Enter do not
+submit additional requests. The actual result dimensions may differ from
 the requested size and become the next annotation dimensions.
 
 Import/drop/paste local PNG/JPEG/WebP images, select any previous image from
-the board or sidebar, and download images or transparent annotation layers.
+the board or top-left image gallery, and download images or transparent layers
+through the top-left **更多操作** menu. **保存并结束** is in the canvas menu.
+Use the 12-color palette, custom color picker and S/M/L/XL stroke presets.
+V selects, H pans, C/D draws, E erases, T types, L/R/O draws shapes.
+Ctrl/Command-Z undoes, Shift-Z redoes, Ctrl/Command-D duplicates frames and
+Delete removes selected canvas frames. Removing a frame keeps its image file.
+Undo/redo restores canvas state only and never replays API requests.
+
+The composer accepts up to four reference images from the session, computer,
+or clipboard. Reference-only imports do not create extra canvas frames.
+Plain new-image requests use `generations`; explicitly adding references uses
+`edits` with those images. Image edits upload the selected source first, then
+references; markup applies to the first source only. This explicit routing
+is not an automatic fallback, and is verified with mocks rather than live
+provider requests in 1.3.0.
 Opening, moving, importing, drawing, saving and reloading make no paid request.
 Only Submit sends a request; concurrent submissions are disabled.
 
