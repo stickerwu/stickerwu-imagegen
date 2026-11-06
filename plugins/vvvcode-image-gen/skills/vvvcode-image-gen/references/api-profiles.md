@@ -1,7 +1,11 @@
 # API connections and compatibility (1.5)
 
-The visible name is **stickerwu imagegen**. Keep installing/updating the stable
-`vvvcode-image-gen@vvvcode-plugins` identity; old CLI paths and skill references work.
+The visible name is **stickerwu imagegen**. New installations use
+`stickerwu-imagegen@vvvcode-plugins` and the `stickerwu-imagegen` skill.
+The legacy `vvvcode-image-gen@vvvcode-plugins` identity remains available for
+in-place upgrades; old CLI paths and skill references continue to work.
+For an explicitly requested migration to the new invocation name, uninstall the
+old plugin and install the new entry. Keep the existing API configuration file.
 
 ## Canvas
 

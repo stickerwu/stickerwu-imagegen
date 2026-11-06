@@ -1,6 +1,6 @@
 {
   "name": "stickerwu-imagegen",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "description": "Codex plugin for GPT Image 2.6 generation and iterative image edits in a local annotation studio",
   "type": "module",
@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "build": "node scripts/build-stickerwu-plugin.mjs",
     "test": "node --test",
     "check": "node --check plugins/vvvcode-image-gen/scripts/config.mjs && node --check plugins/vvvcode-image-gen/ui/api-settings.mjs && node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs && node --check plugins/vvvcode-image-gen/scripts/image-info.mjs && node --check plugins/vvvcode-image-gen/scripts/review-server.mjs && node --check plugins/vvvcode-image-gen/scripts/annotate.mjs && node --check plugins/vvvcode-image-gen/scripts/formats.mjs && node --check plugins/vvvcode-image-gen/scripts/stream.mjs && node --check plugins/vvvcode-image-gen/ui/review.mjs && node --check plugins/vvvcode-image-gen/ui/image-options.mjs && node --check plugins/vvvcode-image-gen/ui/canvas-model.mjs"
   }

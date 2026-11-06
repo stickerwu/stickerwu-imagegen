@@ -13,6 +13,7 @@
 - Canvas undo/redo must change local layout/markup only, never replay generation requests; keep deleted image files and persist removed-frame state.
 - Respect Chinese IME composition and Shift+Enter in both prompt and inline annotation text.
 - Use `stickerwu imagegen` as the visible name; keep the legacy plugin/skill ID, script paths and configuration path for in-place updates.
+- New installs use `stickerwu-imagegen`; retain the legacy marketplace entry for old installs. Maintain the runtime in `plugins/vvvcode-image-gen`, run `npm run build` to regenerate `plugins/stickerwu-imagegen`, and run its distribution check before publishing. Never hand-edit the generated copy or installed caches.
 - API profiles must have separate credentials. New/changed endpoints never inherit a key; public settings and canvas exports must never contain keys.
 - Saving/switching API settings makes no image request. Lock settings during generation and snapshot the chosen connection for each explicit Submit.
 # Output verification

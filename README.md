@@ -61,18 +61,19 @@ Flare GIF、Flare 标注改图、2.6 透明背景和 mask 尚未做线上验证�
 
 要求 Node.js 22 或以上，无第三方 npm 依赖。
 
-代码镜像：[GitHub](https://github.com/stickerwu/vvvcode-image-gen) ·
-[Gitee](https://gitee.com/stickerwu/vvvcode-image-gen)。
+代码镜像：[GitHub](https://github.com/stickerwu/stickerwu-imagegen) ·
+[Gitee](https://gitee.com/stickerwu/stickerwu-imagegen)。
 
 克隆或下载本仓库，在仓库根目录运行：
 
 ```sh
 codex plugin marketplace add .
-codex plugin add vvvcode-image-gen@vvvcode-plugins
+codex plugin add stickerwu-imagegen@vvvcode-plugins
 ```
 
-仓库包含 `.agents/plugins/marketplace.json`，插件位于
-`plugins/vvvcode-image-gen`。本地市场注册和插件安装命令已在开发环境验证。
+仓库包含 `.agents/plugins/marketplace.json`，新版插件位于
+`plugins/stickerwu-imagegen`，技能调用名也是 `stickerwu-imagegen`。
+`plugins/vvvcode-image-gen` 继续提供旧 ID 更新入口。本地市场注册和插件安装命令已在开发环境验证。
 安装后新建一个 Codex 任务使用插件，也可以直接使用下面的 CLI。
 
 ## API 地址与密钥
@@ -116,7 +117,9 @@ API 需兼容 OpenAI 图片端点及所选模型；填写 HTTPS 基础地址即�
 ### 从旧版更新
 
 显示名已改为 `stickerwu imagegen`，**安装 ID 继续保留 `vvvcode-image-gen@vvvcode-plugins`**，
-因此原安装可以直接更新，不会变成两个插件。仓库地址、脚本路径、技能 ID 和旧环境变量继续有效。
+因此原安装可以直接更新。v1.5.1 另提供 `stickerwu-imagegen@vvvcode-plugins` 新安装入口，
+希望技能调用名也改为 `stickerwu-imagegen` 时，先卸载旧入口，再安装新入口，避免同时启用两份。
+原脚本路径、旧技能 ID 和旧环境变量继续有效。仓库现名为 `stickerwu-imagegen`。
 原 `~/.config/vvvcode-image-gen/config.json` 无需移动或重新输入密钥；首次保存时扩展为多连接格式，
 并保留旧版能读取的顶层 `apiKey`、`baseUrl`、`model`。旧画布仍可用 `--session` 打开。
 

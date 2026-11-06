@@ -1,0 +1,24 @@
+{
+  "name": "stickerwu-imagegen",
+  "version": "1.5.1",
+  "description": "stickerwu imagegen: configurable API profiles, GPT Image 2.6 generation, infinite canvas and annotated edits. Upgrades existing VVVCode Image Gen installations.",
+  "author": {
+    "name": "stickerwu"
+  },
+  "skills": "./skills/",
+  "license": "MIT",
+  "interface": {
+    "displayName": "stickerwu imagegen",
+    "shortDescription": "自定义 API、多连接切换、GPT Image 2.6 生图与无限画布改图。",
+    "longDescription": "支持自行配置 OpenAI 兼容的图片 API 地址和独立密钥，保存多组连接并在画布菜单中切换。提供原 VVVCode Image Gen 的旧 ID 兼容入口，沿用原配置、命令与已保存画布。普通生图直接调用 API；需要时打开 Cowart 风格的浅灰无限画布，支持参考图、圈画与文字标注、并排迭代。每个图片框可独立设置模型、质量、复杂度、分辨率、格式、压缩和流式预览；实际可用性取决于所选服务商。",
+    "developerName": "stickerwu",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "用 sunburst 生成一张图片",
+      "参考这张图片，用 flare 修改背景"
+    ]
+  }
+}

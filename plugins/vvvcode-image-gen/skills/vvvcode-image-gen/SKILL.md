@@ -5,8 +5,9 @@ description: Use when the user invokes stickerwu imagegen or its former name VVV
 
 # stickerwu imagegen
 
-Formerly VVVCode Image Gen. The internal `vvvcode-image-gen` plugin/skill ID and
-script paths stay stable so existing installations update in place.
+Formerly VVVCode Image Gen. This is the legacy upgrade entry; new installations
+use `stickerwu-imagegen`. Both entries keep the existing API configuration and
+saved canvas format; the legacy entry still supports in-place updates.
 
 Resolve `../../scripts/generate.mjs` relative to this SKILL.md. Requires Node.js
 22+; no npm install. Use this plugin's API directly for requested GIFs; a GIF
