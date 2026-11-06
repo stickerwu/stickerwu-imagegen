@@ -1,7 +1,8 @@
 # stickerwu imagegen
 
-用于 Codex 的生图 / 改图插件，原名 **VVVCode Image Gen**。v1.5.0 加入**自定义 API、多连接切换与旧版兼容更新**。
-已适配 GPT Image 2.6，保留画布参数面板与输出协议：
+用于 **Codex、Claude Code、DeepSeek Harness** 的生图 / 改图插件，原名 **VVVCode Image Gen**。
+v1.6.0 增加 Claude Code 原生插件清单与 DeepSeek Harness 原生工具 / bundle；三端共用图片客户端、API 连接和按需标注画布。
+支持显式指定 Image 2.5 / 2.6，保留画布参数面板与输出协议：
 每个图片框可以独立选择模型、质量、复杂度、分辨率、输出格式、压缩和流式预览。
 沿用 Cowart 的浅灰、白、蓝配色与悬浮布局，支持撤销重做、多选、橡皮擦和参考图。
 支持图片框生图、导入图片、圈画改图、并排比较、保存后重新打开。
@@ -16,7 +17,10 @@
 显式指定 `gpt-image-2.5-sunburst` 或 `gpt-image-2.5-flare` 时仍调用 2.5，不静默迁移。
 
 这是一份独立实现，交互思路参考 Niu Image Gen；没有复制其代码、品牌资产或密钥。
-不是 VVVCode 或 OpenAI 官方插件。2.6 模型 ID 与 OpenAI 官方文档一致；中转服务权限和参数兼容性仍需分别验证。
+不是 VVVCode、OpenAI、Anthropic 或 DeepSeek 官方出品或官方审核背书的插件。使用各宿主公开的插件格式；中转服务权限和参数兼容性仍需分别验证。
+
+使用文档：[三端配置与排错](docs/usage.md) · [市场收录与官方目录](docs/marketplaces.md) ·
+[维护与发布](docs/releases.md) · [更新记录](CHANGELOG.md) · [隐私](PRIVACY.md) · [使用条款](TERMS.md)。
 
 ## 两种模式
 
@@ -59,10 +63,14 @@ Flare GIF、Flare 标注改图、2.6 透明背景和 mask 尚未做线上验证�
 
 ## 安装
 
-要求 Node.js 22 或以上，无第三方 npm 依赖。
+共享图片 CLI / 画布要求 Node.js 22 或以上，无第三方运行时依赖。
+DeepSeek Harness 原生适配器使用宿主 SDK，支持 **Harness >=0.2.2-rc.1 <0.3.0**；Harness 自身的 Node 要求以其官方发行包为准，桌面版自带运行时。
+不需要安装第二份 Harness SDK，不会把 DeepSeek 聊天模型密钥当作图片 API 密钥。
 
 代码镜像：[GitHub](https://github.com/stickerwu/stickerwu-imagegen) ·
 [Gitee](https://gitee.com/stickerwu/stickerwu-imagegen)。
+
+### Codex
 
 克隆或下载本仓库，在仓库根目录运行：
 
@@ -75,6 +83,68 @@ codex plugin add stickerwu-imagegen@vvvcode-plugins
 `plugins/stickerwu-imagegen`，技能调用名也是 `stickerwu-imagegen`。
 `plugins/vvvcode-image-gen` 继续提供旧 ID 更新入口。本地市场注册和插件安装命令已在开发环境验证。
 安装后新建一个 Codex 任务使用插件，也可以直接使用下面的 CLI。
+
+### Claude Code
+
+在 Claude Code 中使用原生插件市场命令：
+
+```text
+/plugin marketplace add stickerwu/stickerwu-imagegen
+/plugin install stickerwu-imagegen@stickerwu-plugins
+```
+
+新会话中调用 `/stickerwu-imagegen:stickerwu-imagegen`，或直接提出生图 / 改图请求。
+仓库根目录的 `.claude-plugin/marketplace.json` 指向带有原生 `.claude-plugin/plugin.json` 的同一份插件目录。
+Gitee 用户可先克隆镜像，再用 `/plugin marketplace add <本地仓库绝对路径>`。
+
+### DeepSeek Harness
+
+根 npm 包名为 **`dsh-stickerwu-imagegen`**；这是预构建 ESM bundle，不依赖安装时执行构建脚本。
+在 Harness CLI 可用的终端中，安装到实际使用的 profile（桌面默认 `desktop`）：
+
+```sh
+dsh plugin --profile desktop add github:stickerwu/stickerwu-imagegen#v1.6.0
+```
+
+Gitee 镜像：
+
+```sh
+dsh plugin --profile desktop add git+https://gitee.com/stickerwu/stickerwu-imagegen.git#v1.6.0
+```
+
+也可以在源码目录生成并安装经过检查的离线包；`pack:verify` 打印实际 tarball 绝对路径：
+
+```sh
+npm run build
+npm run pack:verify
+dsh plugin --profile desktop add <打印出的-dsh-stickerwu-imagegen-1.6.0.tgz-绝对路径>
+```
+
+安装后重新加载该 profile / 重启 Harness。CLI 负责维护 profile 依赖和 bundle 顺序，无需手工改宿主配置。
+需要移除时运行 `dsh plugin --profile desktop remove dsh-stickerwu-imagegen`，已有 API 连接和图片文件保留。
+当前没有发布 npm 注册表包，也没有声称已通过官方插件市场审核；Git 仓库和 tarball 均可安装。
+
+| Harness 原生工具 | 用途 |
+| --- | --- |
+| `stickerwu_imagegen_generate` | 一次明确调用发起一次生图请求 |
+| `stickerwu_imagegen_edit` | 本地图片路径或 Harness 图片附件引用改图，可加 mask 或透明 markup |
+| `stickerwu_imagegen_canvas` | 按需打开无限画布；支持上传附件、圈画、文字标注和用户提交后的迭代 |
+| `stickerwu_imagegen_status` | 只读查看连接与模型，不回传密钥、不调用图片 API |
+
+示例：“用 stickerwu_imagegen_generate，model 设为 gpt-image-2.5-flare，画一只小猫”。
+指定 2.5 时保持该模型，只有 `sunburst` / `flare` 简写指向 2.6。GIF / SVG 需要 2.6 和服务商开放权限。
+原生工具返回原始图片文件路径及真实尺寸；栅格图片另外保存为 Harness 持久附件，供原生图片预览使用。
+预览存储失败时保留成功图片并返回警告，不重试生图。SVG 返回文件路径，不冒充栅格附件。
+
+Harness 插件配置使用 Schemastery：`configPath`（可选配置文件）、`profile`（可选命名连接）、
+`outputDir`（默认 `~/Pictures/stickerwu-imagegen`）、`timeoutMs`、`canvasIdleMs`。
+API 地址与密钥沿用本插件的独立配置；初次配置可请求打开画布，在 **API 设置** 中本地填写。
+打开画布、读取状态、保存 / 切换连接均不产生图片请求。前台请求支持 Harness 取消，下载和 SSE 也会停止。
+已打开的画布在工具返回后继续运行，用户 Finish、闲置超时或插件卸载时关闭。
+
+原生格式依据：[Harness 官方插件教程](https://github.com/deepseek-ai/deepseek-harness/tree/master/docs/user/develop/basic)、
+[工具契约](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/adding-a-tool.md)、
+[Claude Code 插件参考](https://code.claude.com/docs/en/plugins-reference)。
 
 ## API 地址与密钥
 
@@ -275,4 +345,5 @@ GitHub Actions 配置 Windows / Linux、Node 22 / 24 测试。
 
 提示词、输入图片和遮罩会发送到所配置的 API 服务商。
 只发布代码，不发布用户输入图片、生成结果或密钥。
+详细数据流、凭据保存和清理方式见 [PRIVACY.md](PRIVACY.md)；问题反馈见 [使用文档](docs/usage.md#反馈问题)。
 MIT，见 [LICENSE](LICENSE)。

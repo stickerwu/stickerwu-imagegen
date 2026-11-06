@@ -19,11 +19,19 @@ async function walk(directory) {
   return files;
 }
 const expected = [];
+async function artifact(path, value) {
+  expected.push(path);
+  const target = join(destination, path), text = JSON.stringify(value, null, 2) + '\n';
+  if (check) assert.equal((await readFile(target, 'utf8')).replaceAll('\r\n', '\n'), text, `Rebuild distribution: ${path}`);
+  else { await mkdir(dirname(target), { recursive: true }); await writeFile(target, text); }
+}
 for (const file of await walk(source)) {
   const path = relative(source, file).replaceAll('\\', '/');
   const renamed = path.replace('skills/vvvcode-image-gen/', 'skills/stickerwu-imagegen/');
   const target = join(destination, renamed);
-  let bytes = Buffer.from((await readFile(file, 'utf8')).replaceAll('\r\n', '\n'));
+  const isText = /\.(?:json|mjs|js|cjs|html|css|md|ya?ml|txt|svg)$/i.test(path);
+  let bytes = await readFile(file);
+  if (isText) bytes = Buffer.from(bytes.toString('utf8').replaceAll('\r\n', '\n'));
   if (path === '.codex-plugin/plugin.json') {
     const manifest = JSON.parse(bytes.toString('utf8'));
     manifest.name = 'stickerwu-imagegen';
@@ -35,9 +43,21 @@ for (const file of await walk(source)) {
     bytes = Buffer.from(text);
   }
   expected.push(renamed);
-  if (check) assert.equal((await readFile(target, 'utf8')).replaceAll('\r\n', '\n'), bytes.toString('utf8'), `Rebuild distribution: ${renamed}`);
+  if (check) {
+    const actual = await readFile(target);
+    if (isText) assert.equal(actual.toString('utf8').replaceAll('\r\n', '\n'), bytes.toString('utf8'), `Rebuild distribution: ${renamed}`);
+    else assert.deepEqual(actual, bytes, `Rebuild binary asset: ${renamed}`);
+  }
   else { await mkdir(dirname(target), { recursive: true }); await writeFile(target, bytes); }
 }
+const metadata = JSON.parse(await readFile(join(source, '.codex-plugin/plugin.json'), 'utf8'));
+await artifact('.claude-plugin/plugin.json', {
+  name: 'stickerwu-imagegen', version: metadata.version, description: metadata.description,
+  author: metadata.author, license: metadata.license,
+  homepage: 'https://github.com/stickerwu/stickerwu-imagegen',
+  repository: 'https://github.com/stickerwu/stickerwu-imagegen',
+  keywords: ['imagegen', 'annotation', 'image-2.5', 'image-2.6', 'stickerwu'],
+});
 const actual = (await walk(destination)).map(file => relative(destination, file).replaceAll('\\', '/')).sort();
 assert.deepEqual(actual, expected.sort(), 'Unexpected files in the generated distribution.');
 console.log(`${check ? 'Verified' : 'Built'} stickerwu-imagegen: ${expected.length} files; legacy entry retained.`);

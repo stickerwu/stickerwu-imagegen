@@ -28,13 +28,15 @@ export async function requestImages({
   apiKey, baseUrl, mode = 'generate', model = 'sunburst', prompt, images = [], mask, markup,
   size, quality, complexity, background, outputFormat, frameCount, frameDurationMs,
   outputCompression, stream, partialImages, onProgress = () => {},
-  n = 1, outputDir = 'outputs', timeout = 300000, fetchImpl = fetch,
+  n = 1, outputDir = 'outputs', timeout = 300000, fetchImpl = fetch, signal,
 } = {}) {
+  signal?.throwIfAborted();
   if (!apiKey) throw new Error('Configure a key for this endpoint or set STICKERWU_IMAGEGEN_API_KEY (legacy VVVCODE_API_KEY) before making a request.');
   if (!['generate', 'edit'].includes(mode)) throw new Error('Mode must be generate or edit.');
   if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('Prompt is required.');
   if (!Number.isInteger(n) || n < 1 || n > 4) throw new Error('Count must be 1 to 4.');
   if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 1800000) throw new Error('Timeout must be 1000–1800000 ms.');
+  const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout);
   if (mode === 'edit' && (!images.length || images.length > 10)) throw new Error('Edit requires 1–10 source images.');
   if (mode === 'generate' && (images.length || mask || markup)) throw new Error('Images, mask and markup require edit mode.');
   if (markup && mask) throw new Error('Do not combine markup with mask.');
@@ -77,8 +79,9 @@ export async function requestImages({
   const endpoint = `${normalizeBase(baseUrl)}/images/${mode === 'edit' ? 'edits' : 'generations'}`;
   try {
     // No automatic retries: a timeout may still have incurred a charge upstream.
+    requestSignal.throwIfAborted();
     const response = await fetchImpl(endpoint, {
-      method: 'POST', headers, body, signal: AbortSignal.timeout(timeout), redirect: 'error',
+      method: 'POST', headers, body, signal: requestSignal, redirect: 'error',
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 2000)}`);
     let payload;
@@ -87,7 +90,8 @@ export async function requestImages({
         throw new Error('Requested streaming but provider did not return text/event-stream.');
       const data=[], prefix=mode==='edit'?'image_edit':'image_generation';
       let partials=0;
-      for await(const event of imageEvents(response)) {
+      for await(const event of imageEvents(response, { signal: requestSignal })) {
+        requestSignal.throwIfAborted();
         if(event.type==='error' || event.error)throw new Error(event.error?.message || event.message || 'Image stream failed.');
         if(event.type===`${prefix}.partial_image`) {
           if(++partials>3 || !event.b64_json)throw new Error('Invalid partial image event.');
@@ -114,7 +118,8 @@ export async function requestImages({
         const url = new URL(item.url);
         if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Image URL must use HTTPS.');
         // Never forward the provider key to a result CDN.
-        const download = await fetchImpl(url.href, { signal: AbortSignal.timeout(timeout), redirect: 'error' });
+        requestSignal.throwIfAborted();
+        const download = await fetchImpl(url.href, { signal: requestSignal, redirect: 'error' });
         if (!download.ok) throw new Error(`Image download HTTP ${download.status}`);
         bytes = Buffer.from(await download.arrayBuffer());
       } else throw new Error('Result has neither b64_json nor url.');
@@ -127,6 +132,7 @@ export async function requestImages({
       }
       buffers.push({ bytes, ext });
     }
+    requestSignal.throwIfAborted();
     await mkdir(outputDir, { recursive: true });
     const paths = [];
     for (const { bytes, ext } of buffers) {

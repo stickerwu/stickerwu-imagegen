@@ -16,6 +16,12 @@
 - New installs use `stickerwu-imagegen`; retain the legacy marketplace entry for old installs. Maintain the runtime in `plugins/vvvcode-image-gen`, run `npm run build` to regenerate `plugins/stickerwu-imagegen`, and run its distribution check before publishing. Never hand-edit the generated copy or installed caches.
 - API profiles must have separate credentials. New/changed endpoints never inherit a key; public settings and canvas exports must never contain keys.
 - Saving/switching API settings makes no image request. Lock settings during generation and snapshot the chosen connection for each explicit Submit.
+- Maintain native host entry points: Codex marketplace + plugin, Claude marketplace + plugin, and the prebuilt DeepSeek Harness `dsh.bundle`. Generate Claude payload metadata with the shared builder; do not leak Codex-only manifest fields into it.
+- Harness uses its own `defineTool`, Schemastery Config, injected tools/attachments and effect-based disposal. Return canonical JSON plus durable attachment references, not path/base64 image blocks. Test the actual SDK and an installed tarball, not only fake registries.
+- Propagate caller cancellation through image requests, downloads and SSE; never retry. Closing/unloading a Harness canvas cancels its own pending work without binding a published canvas to an already-finished tool call.
+- Preserve all four pinned Image 2.5/2.6 IDs. Preview failure after successful generation retains originals and must not turn into another paid image request. A standards-compliant package is not an officially reviewed marketplace listing.
+- Plugin unload must abort foreground work as well as canvas work, including configuration/attachment preparation before a paid POST can begin; wait for pending operations to settle.
+- Build listing entries from the actually fetched upstream contribution schema. Separate self-hosted markets, community indexing and official review; do not invent submission portals or transfer another product's manifest fields.
 # Output verification
 
 - Keep model parameters in the shared pure options module; the CLI, local

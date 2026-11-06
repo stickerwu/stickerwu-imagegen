@@ -1,0 +1,13 @@
+{
+  "name": "stickerwu-plugins",
+  "owner": { "name": "stickerwu" },
+  "metadata": { "description": "stickerwu imagegen: configurable Image 2.5/2.6 generation and annotated edits.", "version": "1.6.0" },
+  "plugins": [
+    {
+      "name": "stickerwu-imagegen",
+      "description": "Image 2.5/2.6 generation, API profiles, infinite canvas and annotated image edits.",
+      "version": "1.6.0",
+      "source": "./plugins/stickerwu-imagegen"
+    }
+  ]
+}

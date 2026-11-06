@@ -1,6 +1,6 @@
 ---
 name: vvvcode-image-gen
-description: Use when the user invokes stickerwu imagegen or its former name VVVCode Image Gen, wants configurable image API profiles, GPT Image 2.6 Sunburst or Flare generation, an on-demand infinite canvas, annotated edits, or GIF output with this plugin.
+description: Use when the user invokes stickerwu imagegen or its former name VVVCode Image Gen, wants configurable image API profiles, GPT Image 2.5/2.6 Sunburst or Flare generation, an on-demand infinite canvas, annotated edits, or GIF output with this plugin.
 ---
 
 # stickerwu imagegen
@@ -12,6 +12,20 @@ saved canvas format; the legacy entry still supports in-place updates.
 Resolve `../../scripts/generate.mjs` relative to this SKILL.md. Requires Node.js
 22+; no npm install. Use this plugin's API directly for requested GIFs; a GIF
 request does not require HyperFrames or another video framework.
+
+## Hosts
+
+Codex and Claude Code load this same skill through their native plugin manifests.
+Resolve every script relative to this installed SKILL.md, not the user's workspace.
+DeepSeek Harness uses the repository's native `dsh-stickerwu-imagegen` bundle:
+when its registered tools are available, use `stickerwu_imagegen_generate`,
+`stickerwu_imagegen_edit`, `stickerwu_imagegen_canvas` and
+`stickerwu_imagegen_status`. Do not run a second CLI request for the same tool call.
+Harness accepts durable image attachment references as edit/canvas inputs and
+returns durable raster preview references plus the unchanged original output files.
+The canvas is always on demand. Reuse saved API profiles across all three hosts.
+Explicit `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare` remain pinned to 2.5;
+GIF and SVG require 2.6 and provider access. Never substitute models after failure.
 
 ## On-demand infinite image canvas
 

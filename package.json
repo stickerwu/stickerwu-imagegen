@@ -1,16 +1,26 @@
 {
-  "name": "stickerwu-imagegen",
-  "version": "1.5.1",
-  "private": true,
-  "description": "Codex plugin for GPT Image 2.6 generation and iterative image edits in a local annotation studio",
+  "name": "dsh-stickerwu-imagegen",
+  "version": "1.6.0",
+  "description": "stickerwu imagegen for Codex, Claude Code and DeepSeek Harness: Image 2.5/2.6 generation and annotated edits",
   "type": "module",
   "license": "MIT",
+  "main": "./adapters/deepseek-harness/index.mjs",
+  "files": ["adapters/deepseek-harness/", "plugins/stickerwu-imagegen/", "cordis.patch.yml", "README.md", "LICENSE", "PRIVACY.md", "TERMS.md", "CHANGELOG.md", "AGENTS.md", "docs/usage.md", "docs/marketplaces.md", "docs/releases.md", "docs/submissions/awesome-dsh-plugin/"],
+  "repository": { "type": "git", "url": "git+https://github.com/stickerwu/stickerwu-imagegen.git" },
+  "homepage": "https://github.com/stickerwu/stickerwu-imagegen",
+  "keywords": ["deepseek-harness", "dsh", "dsh-plugin", "cordis", "codex", "claude-code", "imagegen", "stickerwu"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "peerDependencies": { "@deepseek-ai/dsh-tools": ">=0.2.2-rc.1 <0.3.0", "@deepseek-ai/schemastery": "*" },
+  "peerDependenciesMeta": { "@deepseek-ai/dsh-tools": { "optional": true }, "@deepseek-ai/schemastery": { "optional": true } },
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "dsh": ">=0.2.2-rc.1 <0.3.0"
   },
   "scripts": {
     "build": "node scripts/build-stickerwu-plugin.mjs",
+    "icon:build": "node scripts/build-icon.mjs",
+    "pack:verify": "node scripts/verify-package.mjs",
     "test": "node --test",
-    "check": "node --check plugins/vvvcode-image-gen/scripts/config.mjs && node --check plugins/vvvcode-image-gen/ui/api-settings.mjs && node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs && node --check plugins/vvvcode-image-gen/scripts/image-info.mjs && node --check plugins/vvvcode-image-gen/scripts/review-server.mjs && node --check plugins/vvvcode-image-gen/scripts/annotate.mjs && node --check plugins/vvvcode-image-gen/scripts/formats.mjs && node --check plugins/vvvcode-image-gen/scripts/stream.mjs && node --check plugins/vvvcode-image-gen/ui/review.mjs && node --check plugins/vvvcode-image-gen/ui/image-options.mjs && node --check plugins/vvvcode-image-gen/ui/canvas-model.mjs"
+    "check": "node --check plugins/vvvcode-image-gen/scripts/config.mjs && node --check plugins/vvvcode-image-gen/ui/api-settings.mjs && node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs && node --check plugins/vvvcode-image-gen/scripts/image-info.mjs && node --check plugins/vvvcode-image-gen/scripts/review-server.mjs && node --check plugins/vvvcode-image-gen/scripts/annotate.mjs && node --check plugins/vvvcode-image-gen/scripts/formats.mjs && node --check plugins/vvvcode-image-gen/scripts/stream.mjs && node --check plugins/vvvcode-image-gen/ui/review.mjs && node --check plugins/vvvcode-image-gen/ui/image-options.mjs && node --check plugins/vvvcode-image-gen/ui/canvas-model.mjs && node --check adapters/deepseek-harness/index.mjs && node --check adapters/deepseek-harness/bridge.mjs && node scripts/build-stickerwu-plugin.mjs --check"
   }
 }

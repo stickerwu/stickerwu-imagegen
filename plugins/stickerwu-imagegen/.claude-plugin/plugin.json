@@ -1,0 +1,18 @@
+{
+  "name": "stickerwu-imagegen",
+  "version": "1.6.0",
+  "description": "stickerwu imagegen: configurable API profiles, Image 2.5/2.6 generation, infinite canvas and annotated edits. Upgrades existing VVVCode Image Gen installations.",
+  "author": {
+    "name": "stickerwu"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/stickerwu/stickerwu-imagegen",
+  "repository": "https://github.com/stickerwu/stickerwu-imagegen",
+  "keywords": [
+    "imagegen",
+    "annotation",
+    "image-2.5",
+    "image-2.6",
+    "stickerwu"
+  ]
+}

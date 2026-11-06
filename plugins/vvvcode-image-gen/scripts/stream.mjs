@@ -1,5 +1,5 @@
 // SSE is a byte stream: UTF-8 characters, CRLF and JSON may span chunks.
-export async function* imageEvents(response) {
+export async function* imageEvents(response, { signal } = {}) {
   if(!response.body) throw new Error('Streaming response has no body.');
   const decoder=new TextDecoder();
   let buffer='', data=[], event='', total=0;
@@ -10,7 +10,15 @@ export async function* imageEvents(response) {
     const value=JSON.parse(text);
     return {...value,type:value.type || name};
   };
-  for await(const bytes of response.body) {
+  const reader = response.body.getReader();
+  const abort = () => { void reader.cancel(signal.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  try {
+  signal?.throwIfAborted();
+  while (true) {
+    const { value: bytes, done } = await reader.read();
+    signal?.throwIfAborted();
+    if (done) break;
     buffer+=decoder.decode(bytes,{stream:true}); total+=bytes.length;
     if(total>256*1024*1024 || buffer.length>100*1024*1024)throw new Error('Image stream exceeds size limit.');
     let at;
@@ -20,6 +28,11 @@ export async function* imageEvents(response) {
       else if(line.startsWith('data:'))data.push(line.slice(5).replace(/^ /,''));
       else if(line.startsWith('event:'))event=line.slice(6).trim();
     }
+  }
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
   buffer+=decoder.decode();
   if(buffer.trim()) {

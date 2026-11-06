@@ -6,6 +6,41 @@ import { join } from 'node:path';
 import { requestImages, normalizeBase, safeError } from '../plugins/vvvcode-image-gen/scripts/client.mjs';
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aUioAAAAASUVORK5CYII=', 'base64');
+test('caller cancellation stops an image request without retries, including pre-aborted calls', async () => {
+  const first = new AbortController(); first.abort();
+  let calls = 0;
+  await assert.rejects(requestImages({ apiKey: 'test-key', prompt: 'cat', signal: first.signal,
+    fetchImpl: async () => { calls++; throw new Error('unexpected network'); } }), /abort/i);
+  assert.equal(calls, 0);
+  const controller = new AbortController();
+  const pending = requestImages({ apiKey: 'test-key', prompt: 'cat', signal: controller.signal,
+    fetchImpl: async (_url, init) => {
+      calls++;
+      return new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true }));
+    } });
+  controller.abort();
+  await assert.rejects(pending, /abort/i); assert.equal(calls, 1);
+});
+test('caller cancellation interrupts a stalled SSE body and a CDN download without retry', async () => {
+  for (const streaming of [true, false]) {
+    let calls = 0, cancelled = false;
+    const controller = new AbortController();
+    const pending = requestImages({ apiKey: 'test-key', prompt: 'cat', signal: controller.signal,
+      ...(streaming ? { stream: true } : {}),
+      fetchImpl: async (_url, init) => {
+        calls++;
+        if (streaming) return new Response(new ReadableStream({ start() { setImmediate(() => controller.abort()); }, cancel() { cancelled = true; } }),
+          { headers: { 'content-type': 'text/event-stream' } });
+        if (calls === 1) return Response.json({ data: [{ url: 'https://cdn.example/result.png' }] });
+        assert.equal(init.headers, undefined);
+        setImmediate(() => controller.abort());
+        return new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true }));
+      } });
+    await assert.rejects(pending, /abort/i);
+    assert.equal(calls, streaming ? 1 : 2);
+    if (streaming) assert.equal(cancelled, true);
+  }
+});
 async function workspace(fn) {
   const dir = await mkdtemp(join(tmpdir(), 'vvv-test-'));
   try { await fn(dir); } finally { await rm(dir, { recursive: true, force: true }); }
