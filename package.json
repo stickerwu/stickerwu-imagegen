@@ -1,10 +1,10 @@
 {
   "name": "vvvcode-image-gen",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Codex plugin for VVVCode image generation and multipart image editing",
+  "description": "Codex plugin for GPT Image 2.6 generation and iterative image edits in a local annotation studio",
   "type": "module",
   "license": "MIT",
   "engines": { "node": ">=22" },
-  "scripts": { "test": "node --test", "check": "node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs" }
+  "scripts": { "test": "node --test", "check": "node --check plugins/vvvcode-image-gen/scripts/client.mjs && node --check plugins/vvvcode-image-gen/scripts/generate.mjs && node --check plugins/vvvcode-image-gen/scripts/image-info.mjs && node --check plugins/vvvcode-image-gen/scripts/review-server.mjs && node --check plugins/vvvcode-image-gen/scripts/annotate.mjs && node --check plugins/vvvcode-image-gen/ui/review.mjs" }
 }

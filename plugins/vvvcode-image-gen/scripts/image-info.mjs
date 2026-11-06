@@ -6,11 +6,15 @@ export function pngDimensions(bytes) {
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 }
 export function resolutionSize(resolution, ratio = 1) {
-  const edge = { '1K': 1024, '2K': 2048, '4K': 4096 }[resolution.toUpperCase()];
+  const edge = { '1K': 1024, '2K': 2048, '4K': 3840 }[resolution.toUpperCase()];
   if (!edge) throw new Error('Resolution must be 1K, 2K or 4K.');
-  if (!Number.isFinite(ratio) || ratio < 0.1 || ratio > 10) throw new Error('Unsupported aspect ratio.');
-  const short = Math.max(16, Math.round((ratio >= 1 ? edge / ratio : edge * ratio) / 16) * 16);
-  return ratio >= 1 ? `${edge}x${short}` : `${short}x${edge}`;
+  if (!Number.isFinite(ratio) || ratio < 1 / 3 || ratio > 3) throw new Error('Unsupported aspect ratio; use 1:3 through 3:1.');
+  let width = ratio >= 1 ? edge : edge * ratio;
+  let height = ratio >= 1 ? edge / ratio : edge;
+  const scale = Math.min(1, Math.sqrt(8294400 / (width * height)));
+  width = Math.max(16, Math.floor(width * scale / 16) * 16);
+  height = Math.max(16, Math.floor(height * scale / 16) * 16);
+  return `${width}x${height}`;
 }
 function paeth(a, b, c) {
   const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
@@ -61,4 +65,51 @@ export function inspectPng(bytes) {
     previous = row;
   }
   return { ...info, transparencyVerified: true, transparentPixels, translucentPixels };
+}
+
+export function inspectGif(bytes) {
+  let offset = 13, delay = 0, loopCount = null, trailer = false;
+  const requireBytes = count => {
+    if (offset + count > bytes.length) throw new Error('Truncated GIF.');
+  };
+  if (bytes.length < 13 || !/^GIF8[79]a$/.test(bytes.toString('ascii', 0, 6))) throw new Error('Expected a GIF image.');
+  const width = bytes.readUInt16LE(6), height = bytes.readUInt16LE(8);
+  if (bytes[10] & 128) offset += 3 * (1 << ((bytes[10] & 7) + 1));
+  const frameDurationsMs = [];
+  const readBlocks = () => {
+    const parts = [];
+    for (;;) {
+      requireBytes(1);
+      const size = bytes[offset++];
+      if (size === 0) return Buffer.concat(parts);
+      requireBytes(size); parts.push(bytes.subarray(offset, offset + size)); offset += size;
+    }
+  };
+  while (offset < bytes.length) {
+    requireBytes(1);
+    const block = bytes[offset++];
+    if (block === 0x3b) { trailer = true; break; }
+    if (block === 0x21) {
+      requireBytes(1); const label = bytes[offset++];
+      if (label === 0xf9) {
+        requireBytes(6);
+        if (bytes[offset] !== 4 || bytes[offset + 5] !== 0) throw new Error('Invalid GIF control extension.');
+        delay = bytes.readUInt16LE(offset + 2) * 10; offset += 6;
+      } else if (label === 0xff) {
+        requireBytes(1); const size = bytes[offset++]; requireBytes(size);
+        const name = bytes.toString('ascii', offset, offset + size); offset += size;
+        const data = readBlocks();
+        if (['NETSCAPE2.0', 'ANIMEXTS1.0'].includes(name) && data.length >= 3 && data[0] === 1) loopCount = data.readUInt16LE(1);
+      } else readBlocks();
+    } else if (block === 0x2c) {
+      requireBytes(9); const packed = bytes[offset + 8]; offset += 9;
+      if (packed & 128) offset += 3 * (1 << ((packed & 7) + 1));
+      requireBytes(1); offset++; readBlocks();
+      frameDurationsMs.push(delay); delay = 0;
+    } else throw new Error('Invalid GIF block.');
+  }
+  if (!trailer || !frameDurationsMs.length) throw new Error('Truncated GIF or missing frames.');
+  return { format: 'gif', width, height, frameCount: frameDurationsMs.length,
+    frameDurationsMs, durationMs: frameDurationsMs.reduce((sum, ms) => sum + ms, 0), loopCount,
+    infiniteLoop: loopCount === 0 };
 }

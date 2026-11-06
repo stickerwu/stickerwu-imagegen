@@ -7,3 +7,5 @@
 - Do not retry paid image requests automatically.
 - Run `npm test` and `npm run check` before publishing code changes.
 - Document live-provider compatibility honestly; mock tests are not live tests.
+- Keep annotation canvases in source-image pixel coordinates and upload the transparent overlay separately.
+- Keep the review server on loopback with credentials server-side; each explicit Submit authorizes one edit, with no automatic paid retries.

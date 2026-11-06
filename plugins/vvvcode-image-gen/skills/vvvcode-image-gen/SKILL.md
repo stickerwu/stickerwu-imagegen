@@ -1,78 +1,167 @@
 ---
 name: vvvcode-image-gen
-description: Generate or edit images through VVVCode using gpt-image-2.5-flare or gpt-image-2.5-sunburst. Use when the user invokes VVVCode image generation, requests these models, or asks to edit an existing image with this plugin.
+description: Use when the user invokes VVVCode Image Gen, requests GPT Image 2.6 Sunburst or Flare through VVVCode, or wants API image generation, an on-demand infinite canvas for generation and annotated edits, markup-guided edits, or GIF output with this plugin.
 ---
 
 # VVVCode Image Gen
 
-Resolve `../../scripts/generate.mjs` relative to this SKILL.md, not relative to
-the user's home or working directory. Requires Node.js 22+; no npm install.
+Resolve `../../scripts/generate.mjs` relative to this SKILL.md. Requires Node.js
+22+; no npm install. Use this plugin's API directly for requested GIFs; a GIF
+request does not require HyperFrames or another video framework.
 
-## Configuration
+## On-demand infinite image canvas
 
-Run `node <script> --get-config` when starting an image request.
-For capability questions, answer directly from code without starting setup.
-Use `VVVCODE_API_KEY` or the plugin's independent local configuration.
-Never reuse another provider's credentials or expose a key in tool output,
-chat, command-line arguments, Git, prompts, or generated files.
-If no key exists, ask the user to configure VVVCODE_API_KEY locally.
-`--key-stdin` is available for local secure input; config is outside the repo.
-Do not ask users to paste secrets into chat.
-
-## Model and modes
-
-- Default model: `sunburst` = `gpt-image-2.5-sunburst`.
-- Alternative: `flare` = `gpt-image-2.5-flare`.
-- Honor explicit model choice. Do not switch models silently on failure.
-- Generation: JSON POST `/v1/images/generations`.
-- Editing: multipart POST `/v1/images/edits`, including actual image bytes.
-- Never simulate editing by sending an undocumented image field to generations.
-- Never promise pixel-perfect preservation, official logo fidelity or transparency.
-- Live test on September 9, 2026: VVVCode returned HTTP 400
-  "Transparent background is not supported for this model." for
-  `gpt-image-2.5-sunburst` at 1K, 2K and 4K. Do not claim sunburst transparency.
-  The `background=transparent` parameter remains available for future models or
-  provider changes, and failures must be reported without fallback.
-- API/model names are provider identifiers; do not infer official OpenAI availability.
-
-## Generate
-
-Write a UTF-8 prompt file when quoting is complex, then run:
+Use this only when the user asks for a canvas, webpage, annotation or visual
+iteration. Ordinary generation/edit requests stay in `generate.mjs`; do not
+start a server or open a browser for them. When requested, launch the bundled
+local infinite canvas on the selected/latest still image, or without an image
+for an empty canvas. Do not make the user create a markup PNG manually. Resolve
+`../../scripts/annotate.mjs` relative to this skill and read
+[canvas workflow](references/annotation-review.md).
 
 ```text
-node <script> --prompt-file <prompt.txt> --model sunburst --output-dir <deliverables>
+node <annotate-script> --image <latest-image> --output-dir <deliverables> --model sunburst
+node <annotate-script> --output-dir <deliverables> --model sunburst
+node <annotate-script> --session <saved-review-folder>
 ```
 
-Use `--size WIDTHxHEIGHT` for requested dimensions. Default generation is 1024x1024.
-Use `--count 1..4` for requested variants. Do not infer additional paid images.
+Start the process in a session/background helper that stays alive, open the
+`ready.url` with the available browser tool, and hand control to the user.
+`--open` opens the default system browser if no browser tool is used.
+Do not hold up opening the page with an additional confirmation.
 
-## Edit
+Images can be moved/resized on a pan/zoom canvas. Each image retains its own
+annotations and prompt. The user selects an image, draws and writes their edit,
+then clicks **按标注修改**. That action authorizes one API edit. The backend sends
+source bytes, the separate transparent markup PNG and the prompt to
+`/images/edits`; a new result appears beside its source and becomes selected.
+The source and its markup remain available.
 
-Identify the user's source image, or the latest edited result if they request
-another change. Ask which image only if genuinely ambiguous.
+**＋ AI 图片框** creates a blank frame with a ratio and prompt; **生成图片**
+sends one `/images/generations` request and fills that frame. Users can also
+import/drop/paste still images, focus any previous image and continue editing.
+Opening/importing/drawing/saving never makes a paid request.
+Do not send a second request after a `submitted` or `generated` event.
+Further submissions work without another chat instruction. **保存并结束**
+stops the service and saves the canvas; `--session` reopens a finished canvas
+without replaying requests. Never resume or retry an unfinished paid request.
+
+The backend handles the loop while running; it does not depend on the chat
+automatically resuming. If the agent is active, read newline-delimited JSON
+events and inspect each actual result. If handing the page to the user, explain
+that results appear in the page and its local session folder. Do not promise
+that a new chat response will appear automatically.
+
+## Configuration and models
+
+Run `node <script> --get-config` when starting an image request. Capability
+questions can be answered from code and the compatibility reference without setup.
+Use `VVVCODE_API_KEY` or the plugin's independent local configuration. Never reuse
+another provider's credentials or expose a key in output, arguments, Git or chat.
+If absent, ask the user to set the key locally; `--key-stdin` supports secure input.
+
+| Selection | Actual model |
+| --- | --- |
+| `sunburst` (default) | `gpt-image-2.6-sunburst` |
+| `flare` | `gpt-image-2.6-flare` |
+
+Sunburst is for detailed work and precise edits; Flare is for fast iteration.
+Honor an explicit model choice. Explicit `gpt-image-2.5-sunburst` and
+`gpt-image-2.5-flare` remain pinned to 2.5. Never switch models on failure.
+OpenAI documents these 2.6 IDs, but VVVCode access and compatibility are separate.
+
+## Generate and edit
+
+Write complex or non-ASCII prompts to a UTF-8 file, then run:
 
 ```text
-node <script> --edit --image <source.png> --prompt-file <prompt.txt> --output-dir <deliverables>
+node <script> --prompt-file prompt.txt --model sunburst --output-dir <deliverables>
+node <script> --edit --image source.png --prompt-file edit.txt --output-dir <deliverables>
 ```
 
-Edits default to `size=auto` independently of generation settings.
-`auto` asks the provider to choose a size; it does not guarantee exact original
-dimensions. Never stretch or silently change a vertical source to landscape.
-If the user requires exact dimensions, explicitly pass `--size WIDTHxHEIGHT`;
-report a provider rejection instead of silently changing dimensions.
-Use `--mask <mask.png>` if supplied. Multiple `--image` arguments are reference
-images in ONE edit request; they do not mean independent batch edits.
-For independent batch edits, make separate requests only when requested.
+Generation uses JSON POST `/v1/images/generations`. Editing uses multipart POST
+`/v1/images/edits` with actual source-image bytes. Do not simulate an edit through
+an undocumented image field on generations. For follow-up edits, use the latest
+result unless the user identifies another source. Several `--image` arguments
+are references in one edit request, not independent batch edits.
+
+Still generation defaults to `1024x1024`; editing defaults to `auto`.
+`auto` does not guarantee original dimensions. Use `--size WIDTHxHEIGHT` when exact
+dimensions matter. Do not silently stretch or change orientation. Custom
+dimensions must be multiples of 16; still-image model edge, aspect and pixel
+limits apply. `--resolution 4K` now fits within 3840 pixels per edge and 8,294,400
+pixels, preserving aspect approximately; inspect the actual dimensions.
+
+`--quality auto|low|medium|high|xhigh|max` controls rendering detail.
+`--complexity low|medium|high` independently controls planning. If omitted, the
+2.6 models use high complexity. Do not send `input_fidelity` or `reasoning.summary`.
+Use `--count 1..4` only for requested variants; do not infer extra paid images.
+
+## Animated GIF through the API
+
+```text
+node <script> --prompt-file cat-loop.txt --model sunburst --output-format gif --frame-count 15 --frame-duration-ms 200 --size 512x512 --output-dir <deliverables>
+```
+
+Both generations and edits support GIF in the official API; provide still
+references with `--edit --image reference.png`. Describe subject, motion,
+camera behavior and a return to the starting pose in the prompt.
+
+- `--frame-count`: 2–16, official default 9.
+- `--frame-duration-ms`: 20–2000 in this CLI, official guide default 200;
+  encoded delays round to 10 ms. Total duration is the sum of encoded delays.
+- 15 frames × 200 ms = 3 seconds. `size` describes each frame; GIF defaults to
+  `auto`. Per-model limits and the whole request's pixel budget still apply.
+- GIF does not support masks, streaming, partial images, custom compression or
+  prompt rewriter. Frame options apply only to GIF output.
+- Save the API's actual returned GIF bytes. Never rename a PNG into a GIF or
+  claim that locally assembling frames was native API output.
+- CLI results inspect actual frame count, delay, total duration and loop metadata.
+  Infinite-loop metadata does not establish a visually seamless boundary; inspect
+  playback or boundary frames before claiming seamless motion.
+
+**VVVCode live status, 2026-11-06:** A direct 2.6 Sunburst GIF generation request
+returned HTTP 400, `GIF output is not enabled for this request.` GIF preview
+access is required in the official API. Report this access/compatibility failure;
+do not claim GIF works on this VVVCode account, automatically retry, switch models,
+or substitute another framework. The original request was not retried. Flare GIF
+access has not been tested. See [compatibility](references/image-2.6.md).
+
+## Markup-guided API edits
+
+```text
+node <script> --edit --image original.png --markup annotations.png --prompt-file edit.txt --model flare --output-dir <deliverables>
+```
+
+Keep the original image as the first source. `markup` is a separate transparent
+PNG layer containing circles, arrows or sketches; do not flatten it onto the
+original. Its dimensions after orientation must match the first image. Each can
+contain at most 16,777,216 pixels; the overlay must be under 50 MB and contain
+transparent pixels. Additional source images are references.
+
+Describe what to change, what to preserve, and whether to remove the visible
+annotations in the finished image. Do not combine `--markup` with `--mask` or
+prompt rewriter. The CLI verifies PNG overlay alpha and dimensions against PNG
+sources; the provider validates oriented JPEG/WebP source dimensions.
+
+**VVVCode live test, 2026-11-06:** One 2.6 Sunburst multipart edit with a source PNG
+and separate markup PNG succeeded in changing the targeted red circle to yellow;
+the annotation ring was absent from the result, and the text/layout remained
+recognizable. However, requested `1024x1024` returned `1254x1254`, and non-target
+colors/shading changed slightly. This verifies an accepted markup edit request
+and useful edit behavior, not exact size compliance or pixel-perfect preservation.
 
 ## Results and failures
 
-Read JSON `files` from stdout and show local images with absolute Markdown paths.
-Inspect the actual result before reporting whether the requested edit succeeded.
-An HTTP success proves a response, not that the model preserved the source.
-Distinguish local protocol tests from live provider verification.
-On errors, report the status without credentials. No automatic paid retries.
-If edits, mask, multi-image, size or quality are rejected, explain the provider
-compatibility limit; do not fall back to generations without user authorization.
-The API timeout is 300 seconds by default. Poll long-running tool sessions and
-keep the user informed. Never commit input photos or generated images unless
-the user explicitly asks to publish those assets.
+Parse stdout as JSON with Node.js or Python; progress goes to stderr. Read `files`
+and `results`, inspect actual results, then display absolute local image paths.
+HTTP success proves a response, not edit accuracy, preservation or transparency.
+For transparency request `--background transparent --output-format png` or WebP,
+then verify real alpha. A September 2026 rejection on 2.5 Sunburst does not prove
+that 2.6 rejects transparency; 2.6 VVVCode transparency remains untested.
+
+The timeout is 300 seconds. Poll long-running sessions and keep the user informed.
+No automatic paid retries. Report credential-redacted errors. Do not silently
+drop rejected fields, fall back from edits to generations, convert output formats,
+or change the user's chosen model. Never commit source images or generated assets
+unless explicitly asked to publish them.

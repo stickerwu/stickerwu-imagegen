@@ -3,8 +3,8 @@ import { parseArgs } from 'node:util';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { requestImages, safeError, normalizeBase, MODELS } from './client.mjs';
-import { inspectPng, pngDimensions, resolutionSize } from './image-info.mjs';
+import { requestImages, safeError, normalizeBase, MODELS, SUPPORTED_MODELS } from './client.mjs';
+import { inspectPng, inspectGif, pngDimensions, resolutionSize } from './image-info.mjs';
 
 const configPath = join(homedir(), '.config', 'vvvcode-image-gen', 'config.json');
 let apiKey = process.env.VVVCODE_API_KEY || '';
@@ -17,6 +17,7 @@ try {
     edit: { type: 'boolean' },
     image: { type: 'string', multiple: true },
     mask: { type: 'string' },
+    markup: { type: 'string' },
     prompt: { type: 'string' },
     'prompt-file': { type: 'string' },
     model: { type: 'string' },
@@ -26,6 +27,9 @@ try {
     background: { type: 'string' },
     'output-format': { type: 'string' },
     quality: { type: 'string' },
+    complexity: { type: 'string' },
+    'frame-count': { type: 'string' },
+    'frame-duration-ms': { type: 'string' },
     count: { type: 'string' },
     timeout: { type: 'string' },
     'base-url': { type: 'string' },
@@ -39,26 +43,31 @@ try {
     console.log(`VVVCode Image Gen (Node.js 22+)
   --prompt "description" [--model sunburst|flare] [--size 1024x1024]
   --edit --image source.png --prompt "edit instruction" [--mask mask.png]
+  --edit --image source.png --markup overlay.png --prompt-file edit.txt
   --prompt-file prompt.txt                    Avoid shell quoting issues
   --image a.png --image b.png --edit ...      Multiple reference images
   --count 1..4 --quality VALUE --timeout 300000 --output-dir outputs
-  --background transparent|opaque|auto --output-format png|jpeg|webp
-  --resolution 1K|2K|4K [--ratio 3:4]         Long edge 1024/2048/4096
+  --background transparent|opaque|auto --output-format png|jpeg|webp|gif
+  --output-format gif --frame-count 15 --frame-duration-ms 200  3-second GIF
+  --complexity low|medium|high                Planning effort, separate from quality
+  --resolution 1K|2K|4K [--ratio 3:4]         Fits model limits; 4K <=3840 edge, <=8.29MP
   --get-config                               Does not expose the API key
   --set-config --model flare --base-url https://apis.vvvcode.com/
   --key-stdin                                Read and save a key from stdin
 Environment: VVVCODE_API_KEY, VVVCODE_BASE_URL
-Edits default to size=auto; generation defaults to 1024x1024.
+Models: sunburst/flare map to gpt-image-2.6-sunburst/flare; explicit 2.5 IDs stay pinned.
+Edits and GIF default to size=auto; still generation defaults to 1024x1024.
 No automatic retries or fallback from edits to generations.`);
   } else if (flags['get-config']) {
     console.log(JSON.stringify({
       hasKey: Boolean(apiKey), model: config.model || 'sunburst',
+      resolvedModel: MODELS[config.model || 'sunburst'] || config.model,
       baseUrl: normalizeBase(process.env.VVVCODE_BASE_URL || config.baseUrl),
       configPath,
     }, null, 2));
   } else if (flags['set-config'] || flags['key-stdin']) {
     if (flags.model) {
-      if (!MODELS[flags.model] && !Object.values(MODELS).includes(flags.model)) throw new Error('Unknown model.');
+      if (!MODELS[flags.model] && !SUPPORTED_MODELS.includes(flags.model)) throw new Error('Unknown model.');
       config.model = flags.model;
     }
     if (flags['base-url']) config.baseUrl = normalizeBase(flags['base-url']);
@@ -93,11 +102,13 @@ No automatic retries or fallback from edits to generations.`);
       }
       size = resolutionSize(flags.resolution, ratio);
     }
-    size ??= flags.edit ? 'auto' : '1024x1024';
-    console.log(`Mode: ${mode}; model: ${model}; size: ${size}; background: ${flags.background || 'unspecified'}`);
+    size ??= flags.edit || flags['output-format'] === 'gif' ? 'auto' : '1024x1024';
+    console.error(`Mode: ${mode}; model: ${MODELS[model] || model}; size: ${size}; background: ${flags.background || 'unspecified'}`);
     const files = await requestImages({
-      apiKey, mode, model, prompt, images: flags.image, mask: flags.mask,
-      size, quality: flags.quality, background: flags.background,
+      apiKey, mode, model, prompt, images: flags.image, mask: flags.mask, markup: flags.markup,
+      size, quality: flags.quality, complexity: flags.complexity, background: flags.background,
+      frameCount: flags['frame-count'] === undefined ? undefined : Number(flags['frame-count']),
+      frameDurationMs: flags['frame-duration-ms'] === undefined ? undefined : Number(flags['frame-duration-ms']),
       outputFormat: flags['output-format'], n: Number(flags.count || 1),
       timeout: Number(flags.timeout || 300000),
       baseUrl: flags['base-url'] || process.env.VVVCODE_BASE_URL || config.baseUrl,
@@ -106,9 +117,15 @@ No automatic retries or fallback from edits to generations.`);
     const results = [];
     for (const file of files) {
       let metadata;
-      try { metadata = inspectPng(await readFile(file)); }
+      try { metadata = file.endsWith('.gif') ? inspectGif(await readFile(file)) : inspectPng(await readFile(file)); }
       catch (error) { metadata = { transparencyVerified: false, reason: safeError(error, apiKey) }; }
       const warnings = [];
+      if (flags['output-format'] === 'gif') {
+        if (metadata.frameCount !== Number(flags['frame-count'] || 9)) warnings.push('Encoded GIF frame count differs from requested count.');
+        const delay = Math.round(Number(flags['frame-duration-ms'] || 200) / 10) * 10;
+        if (metadata.frameDurationsMs?.some(ms => ms !== delay)) warnings.push('Encoded GIF frame delay differs from requested delay.');
+        if (!metadata.infiniteLoop) warnings.push('Infinite GIF looping was NOT verified.');
+      }
       if (size !== 'auto' && metadata.width && `${metadata.width}x${metadata.height}` !== size) warnings.push('Returned dimensions differ from requested size.');
       if (flags.background === 'transparent' &&
           (!metadata.transparencyVerified || !(metadata.transparentPixels + metadata.translucentPixels > 0)))

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VVVCode · 无限画布</title>
+  <link rel="stylesheet" href="ui/review.css"><script type="module" src="ui/review.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon">V</span><strong>VVVCode</strong><span class="brand-divider">/</span><span class="brand-sub">Canvas</span></div>
+    <span class="session-tag"><i></i><span id="save-status">本地画布</span></span>
+    <button id="new-frame" class="new-button">＋ AI 图片框</button>
+    <button id="import" class="quiet">导入图片</button><input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+    <button id="finish" class="quiet">保存并结束</button>
+  </header>
+  <main>
+    <section id="stage" class="stage" aria-label="可平移缩放的无限画布" tabindex="0">
+      <div id="world" class="world"><svg id="connections" aria-hidden="true"></svg></div>
+      <div id="empty" class="empty"><span class="empty-icon">✧</span><h1>让灵感，有处落笔。</h1><p>创建 AI 图片框，或把图片拖进来。<br>圈画、生成、对比，留在同一张画布上。</p><button id="empty-create" class="new-button">＋ 创建第一张图片</button></div>
+      <div class="board-caption"><span>无限画布</span><span id="image-count">0 张图片</span></div>
+      <div class="toolbar" role="toolbar" aria-label="画布与标注工具">
+        <button data-tool="select" aria-pressed="true" title="选择 / 拖动图片">↖<span>选择</span></button>
+        <button data-tool="hand" aria-pressed="false" title="平移画布，或按住空格拖拽">✋<span>平移</span></button>
+        <span class="divider"></span>
+        <button data-tool="pen" aria-pressed="false" title="自由画笔">✎<span>画笔</span></button>
+        <button data-tool="ellipse" aria-pressed="false" title="圈选区域">◯<span>圈选</span></button>
+        <button data-tool="rectangle" aria-pressed="false" title="矩形区域">▭<span>矩形</span></button>
+        <button data-tool="arrow" aria-pressed="false" title="箭头">↗<span>箭头</span></button>
+        <button data-tool="text" aria-pressed="false" title="在图片上添加文字标注">T<span>文字</span></button>
+        <span class="divider"></span><input id="color" type="color" value="#e14d9d" aria-label="标注颜色">
+        <input id="width" type="range" min="2" max="24" value="7" aria-label="画笔粗细">
+        <button id="undo" title="撤销当前图片的上一步标注">↶</button><button id="clear" title="清空当前图片的标注">⌫</button>
+      </div>
+      <div class="navigation-hint">空格＋拖拽平移 · Ctrl / ⌘＋滚轮缩放</div>
+      <div class="zoom"><button id="zoom-out" aria-label="缩小">−</button><button id="zoom-fit" title="显示全部图片">适应画布</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="放大">＋</button></div>
+    </section>
+    <aside class="sidebar">
+      <div class="edit-card">
+        <span class="step-label" id="operation-label">IMAGE CANVAS</span><h2 id="editor-title">在画布上开始创作。</h2>
+        <p class="help" id="editor-help">选中图片进行标注改图，或创建 AI 图片框，从一句描述开始。</p>
+        <div id="frame-options" hidden><label class="field-label" for="ratio">图片比例</label><select id="ratio"><option value="1024x1024">1:1 · 正方形</option><option value="1024x1536">2:3 · 竖版</option><option value="1536x1024">3:2 · 横版</option><option value="1536x864">16:9 · 横屏</option><option value="864x1536">9:16 · 竖屏</option></select></div>
+        <label class="field-label" for="prompt" id="prompt-label">描述或修改要求</label>
+        <textarea id="prompt" maxlength="32000" rows="6" placeholder="例如：把圈里的帽子改成草绿色，保留人物和其他背景。"></textarea>
+        <div id="text-options" hidden><label class="field-label" for="annotation-text">标注文字（填写后在图片上点击）</label><input id="annotation-text" type="text" maxlength="2000" placeholder="这里改为绿色"></div>
+        <p id="dimensions" class="hint">原图和标注分别保存</p>
+        <div id="status" class="status" role="status" aria-live="polite">按需打开，提交后自动生成。</div>
+        <button id="submit" class="primary" disabled><span id="submit-label">选择图片或新建框</span><span>↗</span></button>
+        <p class="billing">每次有效提交，调用一次可能计费的 API 请求。</p>
+      </div>
+      <div class="details"><span class="details-label">当前模型</span><strong id="model">—</strong><p>新版本放在原图旁边，原图和标注保留。<br>标注层按原图像素导出，缩放不影响定位。</p></div>
+      <div class="history-heading"><h2>画布图片</h2><span>点击定位</span></div><div id="history" class="history" aria-label="画布图片列表"></div>
+      <div class="file-actions"><a id="download" download hidden>保存选中图片 ↙</a><button id="export-markup" class="text-button" disabled>导出透明标注层 ↙</button></div>
+      <p class="privacy">密钥留在本地服务端。提交时，选中的图片、标注与要求发送至所配置的 API 服务商。</p>
+    </aside>
+  </main>
+  <canvas id="source" hidden></canvas><canvas id="overlay" hidden aria-label="在选中图片上拖动标注"></canvas>
+  <div id="done" class="done" hidden><div><span class="done-icon">✓</span><h1>画布和创作已保存。</h1><p>图片、位置、标注与修改记录已保存至输出目录，可在下一次需要时重新打开。</p></div></div>
+</body>
+</html>

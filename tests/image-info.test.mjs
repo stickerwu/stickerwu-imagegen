@@ -24,7 +24,9 @@ function image(type, rows, width = 2, height = 1) {
 test('resolution uses explicit long-edge convention and source aspect ratio', () => {
   assert.equal(resolutionSize('1K', 3 / 4), '768x1024');
   assert.equal(resolutionSize('2k', 3 / 4), '1536x2048');
-  assert.equal(resolutionSize('4K', 3 / 4), '3072x4096');
+  assert.equal(resolutionSize('4K', 3 / 4), '2480x3312');
+  assert.equal(resolutionSize('4K', 1), '2880x2880');
+  assert.equal(resolutionSize('4K', 16 / 9), '3840x2160');
   assert.throws(() => resolutionSize('8K'));
   assert.throws(() => resolutionSize('1K', Infinity));
 });
