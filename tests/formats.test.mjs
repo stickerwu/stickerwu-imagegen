@@ -19,8 +19,10 @@ test('SVG supports viewBox metadata and rejects active or externally loaded cont
     assert.throws(()=>imageType(Buffer.from(`<svg>${part}</svg>`)),/active|external/);
 });
 test('SVG permits quoted local gradients while rejecting external CSS loads',()=>{
-  for(const reference of ['url(#paint)',"url('#paint')",'url( "#paint" )'])
-    assert.equal(imageType(Buffer.from(`<svg><style>path{fill:${reference}}</style></svg>`)),'svg');
+  for(const reference of ['url(#paint)',"url('#paint')",'url( "#paint" )']) {
+    const quote=reference.includes('"')?"'":'"';
+    assert.equal(imageType(Buffer.from(`<svg><path fill=${quote}${reference}${quote}/></svg>`)),'svg');
+  }
   for(const reference of ['url(https://example.com/a)',"url( 'https://example.com/a' )",'url( "#paint" ),url(https://example.com/a)'])
     assert.throws(()=>imageType(Buffer.from(`<svg><style>path{fill:${reference}}</style></svg>`)),/active|external/);
   assert.throws(()=>imageType(Buffer.from('<svg><style>@import "https://example.com/a";</style></svg>')),/active|external/);
@@ -33,5 +35,6 @@ test('SVG rejects namespace aliases, animation mutations and escaped CSS loads',
     '<style>path{fill:u\\72l(https://example.com/a)}</style>',
     '<path style="fill:u\\72l(https://example.com/a)"/>',
     '<style>&#64;import "https://example.com/a";</style>',
+    '<path style="background-image:image-set(\'https://example.com/a\' 1x)"/>',
   ])assert.throws(()=>imageType(Buffer.from(`<svg>${part}</svg>`)),/active|external/);
 });

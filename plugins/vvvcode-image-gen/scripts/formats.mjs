@@ -15,7 +15,7 @@ export function imageType(bytes) {
     const tags=[...text.replace(/<!--[\s\S]*?-->/g,'').matchAll(/<\s*\/?\s*([A-Za-z][\w:.-]*)\b/g)];
     const passive=new Set('svg g defs symbol use title desc metadata path rect circle ellipse line polyline polygon text tspan textPath linearGradient radialGradient stop clipPath mask pattern image filter feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap feDistantLight feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage feMerge feMergeNode feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile feTurbulence style'.toLowerCase().split(' '));
     const unsupportedTag=tags.some(match=>!passive.has(match[1].toLowerCase()));
-    if(unsupportedTag || externalCss || /<!DOCTYPE|<!ENTITY|<\?(?!xml\s)|&#|\\|\bon[a-z]+\s*=|(?:href|src)\s*=\s*["']\s*(?!#)[^"']|@import\b|xmlns\s*=\s*["'](?!http:\/\/www\.w3\.org\/2000\/svg["'])/i.test(text))
+    if(unsupportedTag || externalCss || /<!DOCTYPE|<!ENTITY|<\?(?!xml\s)|&#|\\|\b(?:on[a-z]+|style)\s*=|(?:href|src)\s*=\s*["']\s*(?!#)[^"']|@import\b|xmlns\s*=\s*["'](?!http:\/\/www\.w3\.org\/2000\/svg["'])/i.test(text))
       throw new Error('SVG contains active or external content.');
     return 'svg';
   }
