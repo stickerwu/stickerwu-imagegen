@@ -13,6 +13,8 @@ try {
     help: { type: 'boolean', short: 'h' }, image: { type: 'string' }, session: { type: 'string' },
     'output-dir': { type: 'string' }, model: { type: 'string' }, size: { type: 'string' },
     quality: { type: 'string' }, complexity: { type: 'string' }, background: { type: 'string' },
+    'output-format':{type:'string'},'output-compression':{type:'string'},stream:{type:'boolean'},
+    'partial-images':{type:'string'},'frame-count':{type:'string'},'frame-duration-ms':{type:'string'},
     timeout: { type: 'string' }, 'base-url': { type: 'string' }, 'prompt-file': { type: 'string' },
     'idle-timeout': { type: 'string' }, open: { type: 'boolean' },
   } });
@@ -22,6 +24,9 @@ try {
   node annotate.mjs --session outputs/review-SESSION-ID [--open]
   --model sunburst|flare --size auto|WIDTHxHEIGHT --quality VALUE
   --complexity low|medium|high --background auto|opaque|transparent
+  --output-format png|jpeg|webp|svg|gif --output-compression 0..100
+  --stream --partial-images 0..3 --frame-count 2..16 --frame-duration-ms 20..2000
+Parameters are editable per frame in the page. SVG/GIF are view/download only.
   --prompt-file edit.txt --timeout 300000 --idle-timeout 3600000
 The URL opens a local infinite canvas. Empty frames generate; images edit.
 Each Submit makes exactly one API request. Ordinary generate.mjs stays headless.
@@ -39,6 +44,11 @@ Use Finish in the page to stop; inactive sessions close after one hour.`);
       baseUrl: flags['base-url'] || process.env.VVVCODE_BASE_URL || config.baseUrl,
       model: flags.model || (flags.session ? undefined : config.model) || (flags.session ? undefined : 'sunburst'), size: flags.size,
       quality: flags.quality, complexity: flags.complexity, background: flags.background,
+      outputFormat:flags['output-format'],
+      outputCompression:flags['output-compression']===undefined?undefined:Number(flags['output-compression']),
+      stream:flags.stream,partialImages:flags['partial-images']===undefined?undefined:Number(flags['partial-images']),
+      frameCount:flags['frame-count']===undefined?undefined:Number(flags['frame-count']),
+      frameDurationMs:flags['frame-duration-ms']===undefined?undefined:Number(flags['frame-duration-ms']),
       timeout: Number(flags.timeout || 300000), idleTimeout: Number(flags['idle-timeout'] || 3600000),
       prompt: flags['prompt-file'] ? await readFile(flags['prompt-file'], 'utf8') : '',
       onEvent: event => console.log(JSON.stringify(event)),

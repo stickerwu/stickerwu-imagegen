@@ -105,7 +105,13 @@ The overlay uses actual source pixels even when displayed zoomed or fitted.
 For JPEG/WebP, the browser draws the decoded, oriented image to an unmarked
 source canvas and exports PNG; the overlay remains a second canvas/file.
 For PNG, the original source bytes are uploaded directly. The current studio
-outputs PNG and handles still images only. Use the normal CLI for GIF requests.
+supports PNG/JPEG/WebP for further annotation. SVG/GIF outputs are view/download
+only. The composer parameter summary configures each frame's model, quality,
+complexity, auto/1K/2K/4K/custom size, format, compression and streaming. These
+settings are saved in canvas.json and each request manifest; the page and CLI
+share the same pre-request validator. Partial previews are separate files and
+appear in a floating preview panel; only completed results enter the canvas.
+No credentials or arbitrary filesystem paths are accepted through page options.
 
 The service enforces a loopback session URL, same-origin mutations, known
 image IDs, matching overlay/source dimensions and transparent PNG markup.

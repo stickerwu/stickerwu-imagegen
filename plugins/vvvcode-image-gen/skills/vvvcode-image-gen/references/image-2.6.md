@@ -72,9 +72,36 @@ sample locations, square B changed RGB (49,134,213) to (50,140,226), and triangl
 changed (73,168,121) to (78,183,135). Do not claim exact dimensions or pixel-identical
 preservation. One live markup edit was made; no retry or alternate model was used.
 
-GIF fields, GIF file detection and encoded GIF inspection also have local tests
-with synthetic API responses. Flare GIF, Flare markup edits, 2.6 still generation,
-2.6 transparency and masks remain unverified live.
+1.4.0 made exactly two further live requests on 2026-11-06, no retries:
+
+| Model / operation | Fields | Observed response |
+| --- | --- | --- |
+| Sunburst / generation | quality=max, complexity=medium, size=2048x2048, PNG, stream=true, partial_images=2 | HTTP 200 text/event-stream; final PNG 1218x1292; zero partial events |
+| Flare / edit | quality=high, complexity=low, size=1536x1024, JPEG, output_compression=80 | HTTP 200 JSON, actual PNG bytes; rejected as format mismatch |
+
+This establishes Sunburst generation/SSE completion and another size mismatch.
+HTTP acceptance does not establish that quality/complexity were honored or that
+requested JPEG/compression worked. The Flare result was not presented as a
+successful JPEG. During this live test, the mismatch failed before output save;
+the final 1.4 code additionally preserves unexpected bytes as evidence, verified
+by a subsequent local regression test, without making another paid request.
+
+SVG is exposed using the prompting guide's generations-only, n=1 contract even
+though the generic edit schema lists it. PNG/JPEG/WebP support compression
+(JPEG/WebP only) and stream/partial_images=0–3. SVG/GIF prohibit stream, partials
+and compression. Transparent backgrounds also apply to SVG in the guide.
+The shared validator uses the documented conservative still-size envelope:
+16-pixel multiples, maximum edge 3840, ratio 1:3–3:1, 655360–8294400 total pixels.
+The generic size prose describes 2.5; do not claim this envelope proves the 2.6
+gateway's exact budget. GIF has no still minimum in this plugin; upstream total
+frame/model budgets remain authoritative.
+
+Local tests cover native SVG byte/MIME preservation, JPEG and WebP dimensions,
+zero compression serialization, fragmented SSE, error/truncated streams,
+independent preview files, per-frame options, resume, preflight rejection and
+no retry. Browser testing uses a mock, not provider proof. Flare GIF, Flare
+markup edits, SVG live access, WebP/JPEG compliance, actual intermediate preview
+delivery, 2.6 transparency and masks remain unverified live.
 
 Historical evidence: 2.5 Sunburst transparent edits were rejected on 2026-09-09
 at three resolutions. Do not apply that finding to the 2.6 models.

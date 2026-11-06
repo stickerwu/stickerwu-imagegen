@@ -4,6 +4,8 @@ import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { requestImages, safeError, MODELS, SUPPORTED_MODELS } from './client.mjs';
 import { inspectPng, pngDimensions } from './image-info.mjs';
+import { normalizeOptions, OPTION_KEYS } from '../ui/image-options.mjs';
+import { imageType, imageMetadata, mimeType } from './formats.mjs';
 
 const PIXEL_LIMIT = 16777216, FILE_LIMIT = 50 * 1024 * 1024;
 class HttpError extends Error {
@@ -46,8 +48,9 @@ const GUIDE = '\n\n标注线仅用于定位修改区域，请勿将标注线、�
 
 // The HTTP interface accepts only session image IDs, never filesystem paths or credentials.
 export async function createReviewSession({
-  image, session, outputDir = 'outputs', apiKey, baseUrl, model, size = 'auto',
+  image, session, outputDir = 'outputs', apiKey, baseUrl, model, size,
   quality, complexity, background, timeout = 300000, prompt = '',
+  outputFormat, outputCompression, stream, partialImages, frameCount, frameDurationMs,
   editImpl = requestImages, onEvent = () => {}, idleTimeout = 3600000,
 } = {}) {
   if (!apiKey) throw new Error('Set VVVCODE_API_KEY or the plugin local configuration first.');
@@ -56,6 +59,10 @@ export async function createReviewSession({
   if (loaded && !loaded.finished) throw new Error('This canvas is still running or was not finished. Reuse its running page; do not restart a paid request.');
   model ||= loaded?.model || 'sunburst';
   if (!SUPPORTED_MODELS.includes(MODELS[model] || model)) throw new Error('Unknown model.');
+  const defaults = normalizeOptions({...loaded?.defaults,
+    ...Object.fromEntries(Object.entries({model,size,quality,complexity,background,outputFormat,
+      outputCompression,stream,partialImages,frameCount,frameDurationMs}).filter(([,v])=>v!==undefined)),
+    mode:image?'edit':'generate'});
   if (!Number.isFinite(idleTimeout) || idleTimeout < 1000) throw new Error('Idle timeout must be at least 1000 ms.');
   const sessionDir = session ? resolve(session) : resolve(outputDir, `review-${randomUUID()}`);
   await mkdir(sessionDir, { recursive: true });
@@ -65,7 +72,7 @@ export async function createReviewSession({
     for (const entry of loaded.images) {
       const file = resolve(entry.file), inside = relative(sessionDir, file);
       if (isAbsolute(inside) || inside === '..' || inside.startsWith(`..${sep}`)) throw new Error('Saved image must stay inside its canvas folder.');
-      stillType(await readFile(file));
+      imageType(await readFile(file));
       images.push({ ...entry, file });
     }
   } else if (image) {
@@ -79,7 +86,7 @@ export async function createReviewSession({
   }
   const token = randomBytes(24).toString('hex'), prefix = `/${token}/`;
   const state = { revision: loaded?.revision || 0, currentId: loaded?.currentId || images[0]?.id || null,
-    busy: false, error: null, finished: false, attempts: loaded?.attempts || [] };
+    busy: false, error: null, finished: false, attempts: loaded?.attempts || [], preview: null };
   let layout = null, layoutPending = Promise.resolve();
   if (loaded) {
     try { layout = JSON.parse(await readFile(join(sessionDir, 'canvas.json'), 'utf8')); }
@@ -90,15 +97,17 @@ export async function createReviewSession({
   const done = new Promise(resolveDoneFn => { resolveDone = resolveDoneFn; });
   const publicState = () => ({
     revision: state.revision, currentId: state.currentId, busy: state.busy, error: state.error,
-    finished: state.finished, model: MODELS[model] || model, prompt, layout,
-    images: images.map(({ id, label, type, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly }) => ({
-      id, label, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly, format: type, requiresNormalization: type !== 'png',
+    finished: state.finished, model: MODELS[model] || model, defaults, prompt, layout,
+    preview: state.preview ? {index:state.preview.index,src:`${prefix}api/preview?v=${state.preview.version}`} : null,
+    images: images.map(({ id, label, type, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly, options, warnings }) => ({
+      id, label, width, height, sourceId, canvasNodeId, mode, prompt, referenceOnly, options, warnings,
+      format: type, editable: ['png','jpeg','webp'].includes(type), requiresNormalization: type !== 'png',
       src: `${prefix}image/${id}`,
     })),
   });
   async function persist(overrides = {}) {
     const path = join(sessionDir, 'session.json');
-    await writeFile(`${path}.tmp`, JSON.stringify({ ...state, ...overrides, model: MODELS[model] || model, images }, null, 2) + '\n');
+    await writeFile(`${path}.tmp`, JSON.stringify({ ...state, ...overrides, defaults, model: MODELS[model] || model, images }, null, 2) + '\n');
     await rename(`${path}.tmp`, path);
   }
   const emit = event => onEvent({ ...event, sessionDir });
@@ -107,6 +116,7 @@ export async function createReviewSession({
     ['', 'index.html', 'text/html; charset=utf-8'],
     ['ui/review.mjs', 'review.mjs', 'text/javascript; charset=utf-8'],
     ['ui/canvas-model.mjs', 'canvas-model.mjs', 'text/javascript; charset=utf-8'],
+    ['ui/image-options.mjs', 'image-options.mjs', 'text/javascript; charset=utf-8'],
     ['ui/review.css', 'review.css', 'text/css; charset=utf-8'],
   ]) assets.set(path, { bytes: await readFile(new URL(`../ui/${file}`, import.meta.url)), contentType });
 
@@ -129,14 +139,26 @@ export async function createReviewSession({
       await persist();
       const references = (attempt.referenceIds || []).map(id => images.find(entry => entry.id === id).file);
       const files = await editImpl({
-        apiKey, baseUrl, mode: attempt.mode === 'edit' || references.length ? 'edit' : 'generate', model, size: attempt.mode === 'generate' ? attempt.size : size,
-        quality, complexity, background, timeout,
+        apiKey, baseUrl, mode: attempt.mode === 'edit' || references.length ? 'edit' : 'generate',
+        ...attempt.options, timeout,
         prompt: apiPrompt, images: [...(sourceFile ? [sourceFile] : []), ...references], markup,
-        outputFormat: 'png', n: 1, outputDir: roundDir,
+        n: 1, outputDir: roundDir,
+        onProgress: async event => {
+          const file=resolve(event.file),inside=relative(roundDir,file);
+          if(isAbsolute(inside)||inside==='..'||inside.startsWith(`..${sep}`))throw new Error('Preview must remain inside its round folder.');
+          const type=imageType(await readFile(file));
+          if(!['png','jpeg','webp'].includes(type))throw new Error('Invalid preview format.');
+          state.preview={file,type,index:event.index,version:randomUUID()};
+          emit({event:'partial_image',requestId:attempt.id,index:event.index,file});
+        },
       });
-      if (!Array.isArray(files) || files.length !== 1) throw new Error('Expected exactly one edited PNG.');
-      const info = pngDimensions(await readFile(files[0]));
-      const next = { id: randomUUID(), file: resolve(files[0]), type: 'png',
+      if (!Array.isArray(files) || files.length !== 1) throw new Error('Expected exactly one final image.');
+      const info = imageMetadata(await readFile(files[0]));
+      if(info.format!==attempt.options.outputFormat)throw new Error('Final image format differs from the request.');
+      const warnings=[];
+      if(attempt.options.size!=='auto'&&info.width&&`${info.width}x${info.height}`!==attempt.options.size)warnings.push(`请求 ${attempt.options.size}，实际返回 ${info.width}x${info.height}`);
+      if(attempt.options.background==='transparent'&&(!info.transparencyVerified||!(info.transparentPixels+info.translucentPixels>0)))warnings.push('尚未验证实际透明像素');
+      const next = { id: randomUUID(), file: resolve(files[0]), type: info.format, options:attempt.options, warnings,
         label: `第 ${state.revision + 1} 版`, width: info.width, height: info.height,
         sourceId: source?.id, canvasNodeId: attempt.canvasNodeId, mode: attempt.mode, prompt: attempt.prompt };
       images.push(next); state.currentId = next.id; state.revision++;
@@ -149,6 +171,7 @@ export async function createReviewSession({
       emit({ event: 'error', requestId: attempt.id, error: state.error });
     } finally {
       lastActivity = Date.now();
+      state.preview=null;
       // Keep the in-memory lock until the completed round is safely on disk.
       await persist({ busy: false });
       state.busy = false;
@@ -173,10 +196,14 @@ export async function createReviewSession({
         const asset = assets.get(route); return send(200, asset.bytes, asset.contentType);
       }
       if (req.method === 'GET' && route === 'api/state') return send(200, publicState());
+      if (req.method === 'GET' && route === 'api/preview') {
+        check(state.preview,'No active preview.',404);
+        return send(200,await readFile(state.preview.file),mimeType(state.preview.type));
+      }
       if (req.method === 'GET' && route.startsWith('image/')) {
         const entry = images.find(item => item.id === route.slice(6));
         check(entry, 'Unknown image.', 404);
-        return send(200, await readFile(entry.file), `image/${entry.type}`);
+        return send(200, await readFile(entry.file), mimeType(entry.type));
       }
       check(req.method === 'POST' && ['api/submit', 'api/finish', 'api/layout', 'api/import'].includes(route), 'Not found.', 404);
       check(req.headers.origin === `http://${authority}`, 'This action must come from the local review page.', 403);
@@ -191,7 +218,7 @@ export async function createReviewSession({
         check(Array.isArray(nodes) && nodes.length <= 300, 'Canvas allows up to 300 frames.');
         const knownImages = new Set(images.map(entry => entry.id));
         const validRefs = refs => Array.isArray(refs) && refs.length <= 4 &&
-          new Set(refs).size === refs.length && refs.every(id => knownImages.has(id));
+          new Set(refs).size === refs.length && refs.every(id => images.some(entry => entry.id===id && ['png','jpeg','webp'].includes(entry.type)));
         check(deletedImageIds === undefined || Array.isArray(deletedImageIds) &&
           deletedImageIds.length <= images.length && deletedImageIds.every(id => knownImages.has(id)), 'Unknown deleted canvas image.');
         const ids = new Set();
@@ -203,6 +230,12 @@ export async function createReviewSession({
             node.height >= 32 && node.height <= 10000, 'Invalid frame dimensions.');
           check(typeof node.prompt === 'string' && node.prompt.length <= 32000, 'Invalid frame prompt.');
           check(node.referenceIds === undefined || validRefs(node.referenceIds), 'Invalid frame references.');
+          if(node.options!==undefined) {
+            check(node.options && typeof node.options==='object' && !Array.isArray(node.options) &&
+              Object.keys(node.options).every(key=>OPTION_KEYS.includes(key)), 'Invalid frame options.');
+            // Draft combinations remain editable; validate them strictly at Submit.
+            check(JSON.stringify(node.options).length<2000,'Frame options are too large.');
+          }
           check(Array.isArray(node.shapes) && node.shapes.length <= 2000, 'Too many annotations.');
           let points = 0;
           for (const shape of node.shapes) {
@@ -264,17 +297,17 @@ export async function createReviewSession({
       const source = mode === 'edit' ? images.find(item => item.id === payload.sourceId) : undefined;
       const referenceIds = payload.referenceIds || [];
       check(Array.isArray(referenceIds) && referenceIds.length <= 4 && new Set(referenceIds).size === referenceIds.length &&
-        referenceIds.every(id => id !== source?.id && images.some(entry => entry.id === id)), 'Choose up to four distinct session reference images.');
+        referenceIds.every(id => id !== source?.id && images.some(entry => entry.id === id && ['png','jpeg','webp'].includes(entry.type))), 'Choose up to four distinct still PNG, JPEG or WebP reference images.');
       let sourceBytes, firstInfo = source;
       if (mode === 'edit') {
         check(source, 'Unknown source image.');
+        check(['png','jpeg','webp'].includes(source.type),'GIF/SVG results are view/download only; import a still raster to annotate.');
         if (source.type !== 'png') {
           sourceBytes = decodePng(payload.sourcePng); firstInfo = pngDimensions(sourceBytes);
         } else check(payload.sourcePng === undefined, 'Do not replace the original PNG with a flattened canvas.');
         validDimensions(firstInfo);
       } else {
         check(payload.markup === undefined && payload.sourcePng === undefined && payload.sourceId === undefined, 'Generation cannot include markup or source images.');
-        check(['1024x1024', '1024x1536', '1536x1024', '1536x864', '864x1536'].includes(payload.size || '1024x1024'), 'Choose a supported generation frame size.');
       }
       let markupBytes;
       if (payload.markup !== undefined) {
@@ -284,7 +317,16 @@ export async function createReviewSession({
         check(overlay.transparencyVerified && overlay.transparentPixels + overlay.translucentPixels > 0,
           'Markup must contain transparent pixels.');
       }
-      const attempt = { id: payload.requestId, sourceId: source?.id, mode, size: payload.size || '1024x1024',
+      const supplied=payload.options===undefined ? {} : payload.options;
+      check(supplied && typeof supplied==='object' && !Array.isArray(supplied) &&
+        Object.keys(supplied).every(key=>OPTION_KEYS.includes(key)), 'Unknown image option.');
+      // Complete frame settings may intentionally omit optional startup defaults.
+      const optionBase=payload.options===undefined ? defaults : {model:defaults.model};
+      const options=normalizeOptions({...optionBase,
+        ...(payload.size===undefined?{}:{size:payload.size}), ...supplied,
+        mode:mode==='edit'||referenceIds.length?'edit':'generate', markup:payload.markup,n:1});
+      options.outputFormat ||= 'png';
+      const attempt = { id: payload.requestId, sourceId: source?.id, mode, size:options.size, options,
         ...(referenceIds.length ? { referenceIds } : {}),
         canvasNodeId: payload.canvasNodeId, prompt: payload.prompt.trim(),
         createdAt: new Date().toISOString(), status: 'running' };

@@ -143,3 +143,61 @@ test('an explicitly pinned 2.5 model remains available',()=>workspace(async dir=
       return Response.json({data:[{b64_json:png.toString('base64')}]});
     }});
 }));
+test('SVG generation saves exact XML bytes and JPEG compression is serialized for both endpoints',()=>workspace(async dir=>{
+  const svg=Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><circle r="20"/></svg>');
+  const files=await requestImages({apiKey:'test',prompt:'icon',outputFormat:'svg',background:'transparent',outputDir:dir,
+    fetchImpl:async()=>Response.json({data:[{b64_json:svg.toString('base64')}]})});
+  assert.match(files[0],/\.svg$/); assert.deepEqual(await readFile(files[0]),svg);
+  const image=join(dir,'input.png'); await writeFile(image,png);
+  const jpeg=Buffer.from([255,216,255,217]);
+  for(const mode of ['generate','edit']) await requestImages({apiKey:'test',prompt:'cat',mode,images:mode==='edit'?[image]:[],
+    outputFormat:'jpeg',outputCompression:0,outputDir:dir,fetchImpl:async(url,init)=>{
+      const fields=init.body instanceof FormData?Object.fromEntries(init.body):JSON.parse(init.body);
+      assert.equal(Number(fields.output_compression),0);
+      return Response.json({data:[{b64_json:jpeg.toString('base64')}]});
+    }});
+}));
+test('fragmented SSE saves previews separately and only completed events become final results',()=>workspace(async dir=>{
+  for(const mode of ['generate','edit']) {
+    const image=join(dir,'source.png');await writeFile(image,png);
+    const events=[];
+    const text=`: heartbeat\r\n\r\nevent: image_${mode==='edit'?'edit':'generation'}.partial_image\r\ndata: ${JSON.stringify({type:`image_${mode==='edit'?'edit':'generation'}.partial_image`,b64_json:png.toString('base64'),partial_image_index:0})}\r\n\r\ndata: ${JSON.stringify({type:`image_${mode==='edit'?'edit':'generation'}.completed`,b64_json:png.toString('base64')})}\n\n`;
+    const bytes=new TextEncoder().encode(text);
+    const files=await requestImages({apiKey:'test',prompt:'cat',mode,images:mode==='edit'?[image]:[],stream:true,partialImages:2,
+      outputDir:dir,onProgress:event=>events.push(event),fetchImpl:async(url,init)=>{
+        const fields=init.body instanceof FormData?Object.fromEntries(init.body):JSON.parse(init.body);
+        assert.equal(String(fields.stream),'true');assert.equal(Number(fields.partial_images),2);
+        return new Response(new ReadableStream({start(controller){
+          for(let i=0;i<bytes.length;i+=7)controller.enqueue(bytes.slice(i,i+7));controller.close();
+        }}),{headers:{'content-type':'text/event-stream'}});
+      }});
+    assert.equal(files.length,1);assert.equal(events.length,1);
+    assert.notEqual(events[0].file,files[0]);assert.deepEqual(await readFile(events[0].file),png);
+  }
+}));
+test('truncated or error SSE never promotes a preview or retries the request',()=>workspace(async dir=>{
+  for(const tail of ['', 'data: {"type":"error","error":{"message":"denied test-secret"}}\n\n']) {
+    let calls=0;
+    await assert.rejects(requestImages({apiKey:'test-secret',prompt:'cat',stream:true,partialImages:1,outputDir:dir,
+      fetchImpl:async()=>{
+        calls++;return new Response(`data: ${JSON.stringify({type:'image_generation.partial_image',b64_json:png.toString('base64'),partial_image_index:0})}\n\n${tail}`,
+          {headers:{'content-type':'text/event-stream'}});
+      }}),/completed|denied/);
+    assert.equal(calls,1);
+  }
+}));
+test('a mismatched provider format is retained as evidence without becoming a successful result',()=>workspace(async dir=>{
+  let calls=0,message='';
+  try {
+    await requestImages({apiKey:'test',prompt:'cat',outputFormat:'jpeg',outputDir:dir,fetchImpl:async()=>{
+      calls++;return Response.json({data:[{b64_json:png.toString('base64')}]});
+    }});
+    assert.fail('must reject mismatched format');
+  }catch(error){message=error.message;}
+  assert.equal(calls,1);
+  assert.match(message,/provider returned png/);
+  const {readdir}=await import('node:fs/promises');
+  const files=await readdir(dir);
+  assert.equal(files.length,1);assert.match(files[0],/^unexpected-.*\.png$/);
+  assert.deepEqual(await readFile(join(dir,files[0])),png);
+}));

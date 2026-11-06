@@ -36,6 +36,11 @@ the selected image. Images support single/multiple selection, dragging,
 corner resizing, copy/delete and undo/redo. Undo never replays an API request.
 Each image retains its own annotations, prompt and up to four references.
 Use inline text and the eraser rather than requiring side-panel text entry.
+Expand the parameter summary below the prompt for per-frame model, quality,
+complexity, auto/1K/2K/4K/custom size, format, compression and streaming controls.
+Settings persist with each frame. Partial images appear in a separate preview
+panel; only a completed response becomes a new canvas image. PNG/JPEG/WebP
+results can be annotated. SVG/GIF results are view/download only.
 
 The user selects an image and draws/writes their edit. The small **按标注修改**
 action opens its composer; the composer send button or Enter authorizes one
@@ -101,13 +106,41 @@ Still generation defaults to `1024x1024`; editing defaults to `auto`.
 `auto` does not guarantee original dimensions. Use `--size WIDTHxHEIGHT` when exact
 dimensions matter. Do not silently stretch or change orientation. Custom
 dimensions must be multiples of 16; still-image model edge, aspect and pixel
-limits apply. `--resolution 4K` now fits within 3840 pixels per edge and 8,294,400
+limits apply: the plugin conservatively enforces 655,360–8,294,400 pixels,
+an edge <=3840 and a ratio from 1:3 through 3:1. GIF skips the still minimum.
+`--resolution 4K` now fits within 3840 pixels per edge and 8,294,400
 pixels, preserving aspect approximately; inspect the actual dimensions.
 
 `--quality auto|low|medium|high|xhigh|max` controls rendering detail.
 `--complexity low|medium|high` independently controls planning. If omitted, the
 2.6 models use high complexity. Do not send `input_fidelity` or `reasoning.summary`.
 Use `--count 1..4` only for requested variants; do not infer extra paid images.
+
+## Encoding, SVG and streamed previews
+
+`--output-format png|jpeg|webp|svg|gif` selects the actual output bytes.
+`--output-compression 0..100` applies only to JPEG/WebP and is independent of
+rendering quality. For SVG use generation without references and `--count 1`;
+the prompting guide's narrower generation-only contract takes precedence over
+the generic edit schema. SVG allows transparent background but not masks,
+streaming, partial images or compression. Passive, self-contained SVG is saved
+unchanged; active/external content is rejected. Do not rasterize it implicitly.
+
+`--stream --partial-images 0..3` supports generation and edits with PNG/JPEG/WebP.
+Progress events and separate preview paths go to stderr; stdout remains final
+JSON. A partial is not a final result. An interrupted stream fails without
+promoting previews or replaying the request. The provider may return fewer
+previews than requested.
+
+**Live 1.4 verification, 2026-11-06:** Sunburst accepted max quality, medium
+complexity, requested 2048x2048 PNG, stream=true and partial_images=2. It returned
+an SSE final PNG at 1218x1292 with no partial events. Flare accepted one edit
+POST (high quality, low complexity, 1536x1024, JPEG, compression=80) with HTTP
+200, but returned PNG bytes; the plugin rejected the format mismatch. Exactly
+one request per model, no retries. Do not claim exact sizing, JPEG/compression
+support, preview delivery or visible differences between every quality tier.
+SVG and intermediate previews have local/mock coverage, not verified live
+provider access. See the compatibility reference before promising capabilities.
 
 ## Animated GIF through the API
 
@@ -177,3 +210,5 @@ No automatic paid retries. Report credential-redacted errors. Do not silently
 drop rejected fields, fall back from edits to generations, convert output formats,
 or change the user's chosen model. Never commit source images or generated assets
 unless explicitly asked to publish them.
+Format mismatches retain the actual bytes under `unexpected-<id>.<actual-format>`
+and report an error; those files are evidence, not successful requested output.

@@ -1,4 +1,5 @@
 import { CanvasHistory, hitAnnotation, shouldSubmit } from './canvas-model.mjs';
+import { normalizeOptions, resolutionSize } from './image-options.mjs';
 const $ = selector => document.querySelector(selector);
 const stage = $('#stage'), world = $('#world'), source = $('#source'), overlay = $('#overlay');
 const ctx = overlay.getContext('2d'), promptInput = $('#prompt'), submit = $('#submit');
@@ -46,7 +47,18 @@ async function saveNow() {
 function controls() {
   const busy = locked || state?.busy || state?.finished;
   submit.disabled = busy || offline || !selected || !(promptInput.value.trim() || selected.imageId && shapes.length) || Boolean(selected.imageId && !ready);
-  promptInput.disabled = busy || !selected;
+  const readOnly=entryFor(selected)?.editable===false;
+  promptInput.disabled = busy || !selected || readOnly;
+  for(const field of document.querySelectorAll('[data-option],#option-resolution,#option-ratio,#option-size'))field.disabled=busy||!selected||readOnly;
+  if(readOnly) {
+    submit.disabled=true;
+    $('#settings-note').textContent='此结果可查看和下载；如需标注，请导入 PNG、JPEG 或 WebP 图片。';
+    $('#settings-note').classList.remove('invalid');
+  } else if(selected) {
+    try { normalizeOptions({...selected.options,mode:selected.imageId||selected.referenceIds?.length?'edit':'generate'});
+      $('#settings-note').classList.remove('invalid');
+    } catch(error) {submit.disabled=true;$('#settings-note').textContent=error.message;$('#settings-note').classList.add('invalid');}
+  }
   for (const id of ['finish', 'import', 'menu-import', 'file-input', 'reference-file-input', 'reference-import', 'new-frame', 'empty-create', 'tool-frame', 'references-toggle'])
     $(`#${id}`).disabled = busy;
   for (const button of document.querySelectorAll('[data-size]')) {
@@ -60,13 +72,66 @@ function controls() {
   $('#export-markup').disabled = busy || !ready;
   overlay.style.pointerEvents = ready && drawingTools.includes(tool) && !busy && !space ? 'auto' : 'none';
   overlay.style.cursor = tool === 'text' ? 'text' : tool === 'eraser' ? 'cell' : 'crosshair';
-  $('#submit-label').textContent = busy ? '正在生成，请稍候' : !selected ? '选择图片或新建框' : selected.imageId ? '按标注修改' : '生成图片';
+  $('#submit-label').textContent = busy ? '正在生成，请稍候' : !selected ? '选择图片或新建框' : readOnly ? '此结果仅供查看和下载' : selected.imageId ? '按标注修改' : '生成图片';
   stage.classList.toggle('hand', tool === 'hand'); stage.classList.toggle('space', space);
   $('#style-panel').classList.toggle('frame-style', Boolean(selected && !selected.imageId));
   $('#frame-options').hidden = !selected || Boolean(selected.imageId);
   if (selected && !selected.imageId) $('#frame-size').textContent = `${selected.size || '1024x1024'} px`;
   positionPanels();
 }
+function syncOptions() {
+  if(!selected)return;
+  selected.options ||= {...state.defaults,size:selected.imageId?'auto':selected.size||state.defaults.size||'1024x1024'};
+  const options=selected.options;
+  for(const field of document.querySelectorAll('[data-option]')) {
+    if(field.type==='checkbox')field.checked=options[field.dataset.option]===true;
+    else field.value=options[field.dataset.option]??(field.dataset.option==='outputFormat'?'png':'');
+  }
+  $('#option-resolution').value=selected.resolution || (options.size==='auto'?'auto':'custom');
+  $('#option-ratio').value=String(selected.ratio || 1);$('#option-size').value=options.size || 'auto';
+  const format=options.outputFormat||'png',streaming=options.stream===true;
+  $('#custom-size-field').hidden=$('#option-resolution').value!=='custom';
+  $('#ratio-field').hidden=['custom','auto'].includes($('#option-resolution').value);
+  $('#compression-field').hidden=!['jpeg','webp'].includes(format);
+  $('#stream-field').hidden=['gif','svg'].includes(format);
+  $('#partial-field').hidden=!streaming || ['gif','svg'].includes(format);
+  $('#frames-field').hidden=$('#delay-field').hidden=format!=='gif';
+  $('#settings-summary').textContent=`${options.model?.includes('flare')?'Flare':'Sunburst'} · ${options.quality||'默认质量'} · ${options.size||'auto'} · ${format.toUpperCase()}`;
+  $('#model').textContent=options.model || state.model;
+  $('#settings-note').textContent=format==='gif'?'GIF 需上游预览权限；帧数 × 每帧时长决定总时长。':
+    format==='svg'?'SVG 仅支持无参考图的生图；矢量结果可查看和下载。':
+    `${options.size==='auto'?'自动选择尺寸':'按请求尺寸生成，以实际返回为准'} · 4K 受 3840 边长和 8.29MP 限制；质量与复杂度分别控制。`;
+  controls();
+}
+function optionsChanged(event) {
+  if(!selected || locked || state?.busy)return;
+  const options=selected.options;
+  if(event.target.dataset.option) {
+    const field=event.target,key=field.dataset.option;
+    if(field.type==='checkbox')options[key]=field.checked;
+    else if(field.value==='')delete options[key];
+    else options[key]=field.type==='number'||key==='partialImages'?Number(field.value):field.value;
+    if(key==='outputFormat') {
+      if(!['jpeg','webp'].includes(options.outputFormat))delete options.outputCompression;
+      if(options.outputFormat!=='gif'){delete options.frameCount;delete options.frameDurationMs;}
+      if(['gif','svg'].includes(options.outputFormat)){delete options.stream;delete options.partialImages;}
+    }
+    if(key==='stream'&&!options.stream)delete options.partialImages;
+  } else {
+    selected.resolution=$('#option-resolution').value;selected.ratio=Number($('#option-ratio').value);
+    try {options.size=selected.resolution==='auto'?'auto':selected.resolution==='custom'?$('#option-size').value.trim():
+      resolutionSize(selected.resolution,selected.ratio);}
+    catch(error){showError(error);return;}
+    selected.size=options.size;
+    if(!selected.imageId&&options.size!=='auto') {
+      const [w,h]=options.size.split('x').map(Number);
+      if(w>0&&h>0&&h/w<=3&&w/h<=3){selected.height=selected.width*h/w;renderNode(selected);}
+    }
+  }
+  syncOptions();checkpoint();queueSave();
+}
+for(const field of document.querySelectorAll('[data-option],#option-resolution,#option-ratio,#option-size'))field.addEventListener('change',optionsChanged);
+$('#generation-settings').addEventListener('toggle',positionPanels);
 function applyCamera() {
   world.style.transform = `translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`;
   $('#zoom-value').textContent = `${Math.round(camera.zoom * 100)}%`;
@@ -242,9 +307,16 @@ async function selectNode(node, force = false, keepSelection = false) {
   $('#editor-title').textContent = node?.imageId ? '按标注修改' : 'AI 图片生成';
   promptInput.placeholder = node?.imageId ? '描述修改要求，或使用图片上的文字标注' : '描述你想生成的图片';
   $('#dimensions').textContent = node?.imageId ? '正在加载底图…' : '按所选比例请求图片，以实际返回尺寸为准';
+  syncOptions();
   renderReferences(); renderBoard(); renderHistory(); controls(); queueSave();
   if (!node?.imageId) return;
   const entry = entryFor(node), thisLoad = imageLoad;
+  $('#download').href = entry.src; $('#download').download = `vvvcode-${entry.id}.${entry.format || 'png'}`;
+  if(entry.editable===false) {
+    $('#editor-title').textContent=`${entry.format.toUpperCase()} 结果`;
+    $('#dimensions').textContent=`${entry.width||'—'} × ${entry.height||'—'} · 查看与下载`;
+    controls();promptInput.disabled=true;return;
+  }
   const image = new Image(); image.src = entry.src;
   try {
     await image.decode();
@@ -265,7 +337,11 @@ function createFrame() {
   remember(); closePopovers(); setTool('select');
   const node = { id: crypto.randomUUID(), x: (stage.clientWidth / 2 - camera.x) / camera.zoom - 180,
     y: (stage.clientHeight / 2 - camera.y) / camera.zoom - 210, width: 360, height: 360,
-    size: '1024x1024', prompt: '', shapes: [] };
+    size: state.defaults.size || '1024x1024', prompt: '', shapes: [] };
+  if(node.size!=='auto') {
+    const [w,h]=node.size.split('x').map(Number);
+    node.height=node.width*h/w;
+  }
   if (nodes.some(n => Math.abs(n.x - node.x) < 360 && Math.abs(n.y - node.y) < 360)) {
     node.x = Math.max(...nodes.map(n => n.x + n.width)) + 100; node.y = nodes.at(-1).y;
   }
@@ -463,12 +539,18 @@ promptInput.addEventListener('keydown', event => {
 for (const button of document.querySelectorAll('[data-size]')) button.addEventListener('click', () => {
   if (!selected || selected.imageId) return;
   selected.size = button.dataset.size; const [w, h] = selected.size.split('x').map(Number);
+  selected.options.size=selected.size;selected.resolution='custom';syncOptions();
   selected.height = selected.width * h / w; renderNode(selected); checkpoint(); controls(); focusNode(selected); queueSave();
 });
 async function update(next) {
   if (state) remember();
   const first = !state, previous = state?.currentId;
-  state = next; offline = false; $('#model').textContent = state.model;
+  state = next; offline = false; $('#model').textContent = selected?.options?.model || state.model;
+  $('#stream-preview').hidden=!state.preview;
+  if(state.preview) {
+    if($('#preview-image').getAttribute('src')!==state.preview.src)$('#preview-image').src=state.preview.src;
+    $('#preview-index').textContent=`第 ${Number(state.preview.index||0)+1} 张`;
+  } else $('#preview-image').removeAttribute('src');
   if (first && state.layout) {
     nodes = state.layout.nodes; camera = state.layout.camera;
     for (const id of state.layout.deletedImageIds || []) deletedImageIds.add(id);
@@ -487,6 +569,7 @@ async function update(next) {
       while (nodes.some(n => Math.abs(n.x - node.x) < 50 && Math.abs(n.y - node.y) < node.height + 50)) node.y += node.height + 100;
       nodes.push(node);
     }
+    node.options ||= structuredClone(entry.options || state.defaults);
     added.push(node);
   }
   applyCamera(); renderBoard();
@@ -501,7 +584,11 @@ async function update(next) {
   if (state.finished) { $('#done').hidden = false; clearTimeout(refreshTimer); return; }
   if (state.busy) setStatus('正在调用 API，结果会自动放到画布上。', 'busy');
   else if (state.error) setStatus(`生成失败：${state.error}。标注仍保留，可检查后手动提交。`, 'error');
-  else if (!first && added.length) { setStatus('新图片已放到画布，可继续选择、标注或生成。'); requestId = fingerprint = null; }
+  else if (!first && added.length) {
+    const warnings=state.images.at(-1)?.warnings || [];
+    setStatus(warnings.length?warnings.join('；'):'新图片已放到画布，可继续选择、标注或生成。',warnings.length?'error':'');
+    requestId = fingerprint = null;
+  }
   if (first || added.length) checkpoint();
   if (first && !state.busy && !state.error) setStatus('');
   renderReferences(); renderHistory(); controls(); scheduleRefresh();
@@ -525,12 +612,13 @@ submit.addEventListener('click', async () => {
     // can still navigate the board while its layout is being saved.
     const payload = { revision: state.revision, mode: selected.imageId ? 'edit' : 'generate',
       canvasNodeId: selected.id, referenceIds: selected.referenceIds || [],
+      options:normalizeOptions({...selected.options,mode:selected.imageId||selected.referenceIds?.length?'edit':'generate'}),
       prompt: promptInput.value.trim() || '按照图片中的圈选、箭头和文字标注修改画面，移除标注痕迹，保留未要求修改的内容。' };
     if (selected.imageId) {
       payload.sourceId = selected.imageId;
       if (shapes.length) payload.markup = overlay.toDataURL('image/png');
       if (entryFor(selected).requiresNormalization) payload.sourcePng = source.toDataURL('image/png');
-    } else payload.size = selected.size || '1024x1024';
+    }
     const current = JSON.stringify(payload);
     if (!requestId || current !== fingerprint || state.error) requestId = crypto.randomUUID();
     fingerprint = current; payload.requestId = requestId;
@@ -604,7 +692,7 @@ function renderReferences() {
   const chips = $('#reference-chips'), list = $('#reference-list'); chips.replaceChildren(); list.replaceChildren();
   const refs = selected?.referenceIds || [];
   for (const entry of state?.images || []) {
-    if (entry.id === selected?.imageId) continue;
+    if (entry.id === selected?.imageId || entry.editable===false) continue;
     const button = document.createElement('button'); button.title = entry.label; button.setAttribute('aria-label', `参考图 ${entry.label}`);
     button.setAttribute('aria-pressed', String(refs.includes(entry.id)));
     button.disabled = locked || state.busy || !selected || refs.length >= 4 && !refs.includes(entry.id);

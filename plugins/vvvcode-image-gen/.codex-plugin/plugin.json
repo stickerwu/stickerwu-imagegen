@@ -1,7 +1,7 @@
 {
   "name": "vvvcode-image-gen",
-  "version": "1.3.0",
-  "description": "VVVCode GPT Image 2.6 generation, on-demand infinite canvas, annotated API edits, and native GIF requests.",
+  "version": "1.4.0",
+  "description": "VVVCode GPT Image 2.6 generation, per-frame canvas settings, annotated API edits, SVG/GIF requests, and streamed previews.",
   "author": {
     "name": "stickerwu"
   },
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "VVVCode Image Gen",
     "shortDescription": "GPT Image 2.6 生图、按需无限画布与标注改图。",
-    "longDescription": "通过 VVVCode 调用 2.6 Sunburst / Flare。普通生图直接调用 API；需要时打开 Cowart 风格的浅灰无限画布，支持悬浮工具、图片框、参考图、圈画与文字标注、撤销重做、并排迭代及布局恢复。原生 GIF 请求的实际可用性取决于服务商预览权限。",
+    "longDescription": "通过 VVVCode 调用 2.6 Sunburst / Flare。普通生图直接调用 API；需要时打开 Cowart 风格的浅灰无限画布，支持悬浮工具、参考图、圈画与文字标注、并排迭代及布局恢复。每个图片框可独立设置模型、质量、复杂度、分辨率、格式、压缩和流式预览。SVG 只用于无参考图生图；GIF、压缩、尺寸和中间预览的实际可用性取决于服务商支持。",
     "developerName": "stickerwu",
     "category": "Productivity",
     "capabilities": [

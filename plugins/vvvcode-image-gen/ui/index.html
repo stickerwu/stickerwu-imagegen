@@ -79,6 +79,25 @@
     <div class="composer-heading"><strong id="editor-title">AI 图片生成</strong><span id="dimensions"></span><button id="composer-close" class="icon-button small" title="收起输入面板" aria-label="收起输入面板"><svg><use href="#i-close"/></svg></button></div>
     <div class="reference-row"><div id="reference-chips" class="reference-chips"></div><button id="references-toggle" class="reference-button" title="添加参考图" aria-expanded="false"><svg><use href="#i-image"/></svg><span>参考图</span><svg class="tiny"><use href="#i-plus"/></svg></button></div>
     <textarea id="prompt" maxlength="32000" rows="3" aria-label="描述或修改要求" placeholder="描述你想生成的图片"></textarea>
+    <details id="generation-settings" class="generation-settings">
+      <summary><span id="settings-summary">生成参数</span><span>⌄</span></summary>
+      <div class="settings-grid">
+        <label>模型<select id="option-model" data-option="model"><option value="gpt-image-2.6-sunburst">Sunburst 2.6 · 细节</option><option value="gpt-image-2.6-flare">Flare 2.6 · 速度</option><option value="gpt-image-2.5-sunburst">Sunburst 2.5</option><option value="gpt-image-2.5-flare">Flare 2.5</option></select></label>
+        <label>画面质量<select id="option-quality" data-option="quality"><option value="">模型默认</option><option>auto</option><option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option></select></label>
+        <label>规划复杂度<select id="option-complexity" data-option="complexity"><option value="">模型默认</option><option>low</option><option>medium</option><option>high</option></select></label>
+        <label>输出格式<select id="option-outputFormat" data-option="outputFormat"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option><option value="svg">SVG · 生图</option><option value="gif">GIF · 需预览权限</option></select></label>
+        <label>分辨率<select id="option-resolution"><option value="auto">自动</option><option>1K</option><option>2K</option><option>4K</option><option value="custom">自定义尺寸</option></select></label>
+        <label id="ratio-field">画面比例<select id="option-ratio"><option value="1">1:1</option><option value="0.75">3:4</option><option value="1.3333333333333333">4:3</option><option value="0.6666666666666666">2:3</option><option value="1.5">3:2</option><option value="1.7777777777777777">16:9</option><option value="0.5625">9:16</option><option value="0.3333333333333333">1:3</option><option value="3">3:1</option></select></label>
+        <label id="custom-size-field" class="wide">请求尺寸（像素）<input id="option-size" placeholder="例如 1536x1024" aria-label="自定义请求尺寸"></label>
+        <label>背景<select id="option-background" data-option="background"><option value="">模型默认</option><option>auto</option><option>opaque</option><option>transparent</option></select></label>
+        <label id="compression-field">编码质量 0–100<input id="option-outputCompression" data-option="outputCompression" type="number" min="0" max="100" placeholder="默认 100"></label>
+        <label id="stream-field" class="checkbox-label"><input id="option-stream" data-option="stream" type="checkbox">流式预览</label>
+        <label id="partial-field">中间预览数量<select id="option-partialImages" data-option="partialImages"><option value="">模型默认</option><option value="0">0 · 仅最终图</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+        <label id="frames-field">GIF 帧数<input id="option-frameCount" data-option="frameCount" type="number" min="2" max="16" placeholder="默认 9"></label>
+        <label id="delay-field">每帧毫秒<input id="option-frameDurationMs" data-option="frameDurationMs" type="number" min="20" max="2000" step="10" placeholder="默认 200"></label>
+      </div>
+      <p id="settings-note" class="settings-note"></p>
+    </details>
     <div class="composer-footer"><span class="composer-hint">Enter 发送 · Shift Enter 换行</span><button id="submit" class="send-button" disabled><span id="submit-label">生成图片</span><svg><use href="#i-send"/></svg></button></div>
   </section>
   <div id="reference-picker" class="popover reference-picker panel" hidden><div class="panel-heading"><strong>选择参考图</strong><span>最多 4 张</span></div><div id="reference-list" class="reference-list"></div><button id="reference-import" class="reference-import"><svg><use href="#i-plus"/></svg>从电脑导入参考图</button></div>
@@ -100,6 +119,7 @@
   <nav class="zoom panel" aria-label="视图缩放"><button id="zoom-out" class="icon-button" aria-label="缩小"><svg><use href="#i-minus"/></svg></button><button id="zoom-value" title="重置为 100%">100%</button><button id="zoom-in" class="icon-button" aria-label="放大"><svg><use href="#i-plus"/></svg></button><span class="divider"></span><button id="zoom-fit" class="icon-button" title="显示全部 · Shift 1" aria-label="显示全部"><svg><use href="#i-fit"/></svg></button></nav>
   <div class="canvas-footer"><span id="model"></span><span>空格拖动画布 · Ctrl / ⌘ 滚轮缩放</span></div>
   <div id="status" class="status" role="status" aria-live="polite">选中图片进行标注，或创建 AI 图片框</div>
+  <aside id="stream-preview" class="stream-preview panel" hidden aria-label="生成中的预览"><div class="panel-heading"><strong>生成中的预览</strong><span id="preview-index"></span></div><img id="preview-image" alt="尚未完成的中间预览"><p>中间画面仅供预览，以最终返回为准</p></aside>
   <div id="shortcuts" class="shortcuts panel" hidden><div class="panel-heading"><strong>键盘快捷键</strong><button id="shortcuts-close" class="icon-button" aria-label="关闭快捷键"><svg><use href="#i-close"/></svg></button></div><dl><dt>选择 / 抓手</dt><dd>V / H</dd><dt>新建 AI 图片框</dt><dd>A</dd><dt>标注 / 画笔</dt><dd>C / D</dd><dt>橡皮擦 / 文字</dt><dd>E / T</dd><dt>箭头 / 矩形 / 椭圆</dt><dd>L / R / O</dd><dt>撤销 / 重做</dt><dd>Ctrl/⌘ Z / Shift Z</dd><dt>复制选中框</dt><dd>Ctrl/⌘ D</dd><dt>删除选中框</dt><dd>Delete / Backspace</dd><dt>显示全部 / 重置缩放</dt><dd>Shift 1 / Shift 0</dd><dt>添加或取消多选</dt><dd>Shift 点击 / 拖框</dd><dt>退出工具 / 收起面板</dt><dd>Esc</dd></dl></div>
   <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><input id="reference-file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
   <canvas id="source" hidden></canvas><canvas id="overlay" hidden aria-label="在选中图片上绘制标注"></canvas>

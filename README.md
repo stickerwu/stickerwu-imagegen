@@ -1,7 +1,8 @@
 # VVVCode Image Gen
 
-用于 Codex 的生图 / 改图插件，已适配 GPT Image 2.6。v1.3.0 更新**按需打开的无限画布**：
-按 Cowart 的浅灰、白、蓝配色与悬浮布局优化 UI，增加撤销重做、多选、橡皮擦和参考图。
+用于 Codex 的生图 / 改图插件，已适配 GPT Image 2.6。v1.4.0 补齐**画布参数面板与输出协议**：
+每个图片框可以独立选择模型、质量、复杂度、分辨率、输出格式、压缩和流式预览。
+沿用 Cowart 的浅灰、白、蓝配色与悬浮布局，支持撤销重做、多选、橡皮擦和参考图。
 支持图片框生图、导入图片、圈画改图、并排比较、保存后重新打开。
 普通生图和改图继续直接调用 API；只有需要画布时才启动本地网页。
 同时支持原生 GIF 请求和透明 PNG 标注层改图：
@@ -25,7 +26,8 @@
 
 改图不会降级为 generations。默认 `size=auto`，不继承生图尺寸；
 这让服务端决定尺寸，**不保证精确保留原图尺寸或人物**。
-有精确尺寸要求时使用 `--size WIDTHxHEIGHT`，服务端不支持时会直接报错。
+有尺寸要求时使用 `--size WIDTHxHEIGHT`；部分渠道可能忽略该值，
+必须核验实际返回尺寸，再判断是否满足要求。
 
 ## 兼容性状态
 
@@ -39,7 +41,17 @@ VVVCode 返回 HTTP 400：`GIF output is not enabled for this request.` **没有
 medium quality、low complexity、请求 1024×1024。结果将目标红圆改为黄色，
 标注圈未出现，文字与整体布局保留；但输出为 1254×1254，蓝/绿对照图形有轻微颜色和质感变化。
 因此可确认带标注层的改图请求成功返回并完成主要改色，不能承诺尺寸严格遵从或像素级保留。
-Flare GIF、Flare 标注改图、2.6 静态生图和透明背景未做线上验证。
+1.4.0 另外执行了两次真实请求，每种模型一次，没有重试：
+
+| 请求 | 实际结果 |
+| --- | --- |
+| Sunburst，max / medium，2048×2048 PNG，stream=true，partial_images=2 | HTTP 200 SSE，最终 PNG **1218×1292**；没有返回中间预览事件 |
+| Flare 改图，high / low，1536×1024 JPEG，output_compression=80 | HTTP 200，但实际图片字节为 **PNG**，插件报告格式不符，不宣称 JPEG 成功 |
+
+因此已验证 Sunburst 静态生图与 SSE 最终结果接收；尚不能保证尺寸或格式被此渠道遵从。
+质量/复杂度字段已发送，但单次图像不能证明各挡位的视觉差异。
+SVG、JPEG/WebP 压缩、中间预览和参数组合的本地/模拟测试通过；未声称全部通过线上验收。
+Flare GIF、Flare 标注改图、2.6 透明背景和 mask 尚未做线上验证。
 
 2026-09-09 对旧版 2.5 Sunburst 透明改图的三次 400 是历史记录，不适用于推断 2.6。
 详细字段与官方来源见 [兼容性说明](plugins/vvvcode-image-gen/skills/vvvcode-image-gen/references/image-2.6.md)。
@@ -175,6 +187,34 @@ PNG 原图的标注层透明度与尺寸会在本地检查；JPEG/WebP 原图的
 可选参数：`--count 1..4`、`--quality VALUE`、`--timeout 300000`（毫秒）、
 `--base-url https://apis.vvvcode.com/`、`--output-dir outputs`。
 新增 `--complexity low|medium|high`（规划复杂度，与 quality 独立）。
+
+## 1.4 参数面板与输出
+
+在图片下方展开参数摘要，设置仅应用于当前框，随画布保存/恢复。
+质量支持 `auto / low / medium / high / xhigh / max`，复杂度支持 `low / medium / high`，
+两者独立；“模型默认”表示不发送该可选字段。
+
+分辨率提供自动、1K、2K、4K 和自定义。预设保留所选比例并取 16 的倍数；
+仍图采用保守范围：边长不超过 3840、比例 1:3–3:1、655360–8294400 像素。
+4K 方图为 2880×2880，16:9 为 3840×2160；窄比例 1K 为满足最低像素数可能略大于 1024。
+这是请求尺寸，结果仍显示文件真实尺寸。GIF 不应用仍图最低像素数，模型总预算由上游校验。
+
+```sh
+node plugins/vvvcode-image-gen/scripts/generate.mjs --prompt-file prompt.txt --model flare --quality high --complexity low --resolution 2K --ratio 3:4 --output-format webp --output-compression 80
+node plugins/vvvcode-image-gen/scripts/generate.mjs --prompt-file prompt.txt --stream --partial-images 2 --output-dir outputs
+node plugins/vvvcode-image-gen/scripts/generate.mjs --prompt-file icon.txt --output-format svg --count 1
+```
+
+- JPEG/WebP 支持 `--output-compression 0..100`，0 会原样发送；该字段是编码质量，与渲染质量独立。
+- `--stream` 启用 SSE，`--partial-images 0..3` 指定预览数量；0 仍接收最终结果。
+  CLI 将预览存入单独文件并向 stderr 输出进度，stdout 仍只有最终 JSON。
+  网页将预览放在独立浮窗，最终结果才进入画布。中断/错误流不将预览当成完成。
+- SVG 按较严格的官方指南仅开放无参考图的 generations、n=1，不支持流式、压缩、mask。
+  保存原始 SVG 字节，使用 `image/svg+xml`；页面通过图片元素查看和下载，
+  不隐式栅格化进入标注。主动脚本/外部资源被拒绝。
+- PNG/JPEG/WebP 可继续标注改图；SVG/GIF 结果只查看和下载。GIF 权限限制见上文。
+- 返回格式不一致时保留 `unexpected-<id>.<实际格式>` 作为证据，报错且不将其当成成功结果，
+  不改扩展名、不转码、不自动重试。
 `--resolution 4K` 遵守 3840 单边和 8,294,400 总像素限制，不再输出超限的 4096 单边。
 Base URL 支持根地址或 `/v1` 后缀，不重复拼接。
 优先级：命令行 > 环境变量（地址、密钥） > 本地配置 > 默认值。
@@ -199,7 +239,8 @@ npm run check
 重复提交去重、并发限制、失败保留、密钥脱敏、文本编辑、本地路由边界、
 空白图片框生图、图片导入、布局保存与已结束画布的恢复。
 补充覆盖参考图路由、删除框记录、独立撤销快照、橡皮擦命中与中文输入法提交保护。
-1.3.0 浏览器验收使用模拟 API；不代表新增功能已完成服务商线上验证。
+1.4.0 浏览器验收使用模拟 API，覆盖参数切换、4K/自定义尺寸、越界拦截、
+流式预览、刷新恢复与 SVG 查看。两次真实 API 请求的范围和限制见兼容性状态。
 GitHub Actions 配置 Windows / Linux、Node 22 / 24 测试。
 
 线上验收状态见上方兼容性说明。改图应使用可辨认的输入，只修改单一元素，

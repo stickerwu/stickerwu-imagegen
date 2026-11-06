@@ -55,6 +55,87 @@ const submission = state => ({
   requestId: randomUUID(), revision: state.revision, sourceId: state.currentId,
   prompt: '只修改圈选区域，保留其他内容。', markup: dataUrl(png(32, 32, true)),
 });
+test('per-request model and output settings are validated, persisted and forwarded to one call',async t=>{
+  const {post,state,calls,session}=await setup(t);
+  const initial=await state();
+  for(const options of [{size:'3840x3840'},{outputFormat:'png',outputCompression:50},{model:'oops'},{apiKey:'forbidden'}]) {
+    assert.equal((await post('api/submit',{...submission(initial),options})).status,400);
+  }
+  assert.equal(calls.length,0);
+  const options={model:'flare',size:'2048x2048',quality:'max',complexity:'low',outputFormat:'png',stream:true,partialImages:1};
+  assert.equal((await post('api/submit',{...submission(initial),options})).status,202);
+  const next=await settled(state);
+  assert.equal(calls.length,1);
+  for(const [key,value] of Object.entries({...options,model:'gpt-image-2.6-flare'}))assert.equal(calls[0][key],value);
+  const disk=JSON.parse(await readFile(join(session.sessionDir,'session.json'),'utf8'));
+  assert.equal(disk.attempts[0].options.quality,'max');
+  assert.equal(next.images.at(-1).options.model,'gpt-image-2.6-flare');
+});
+test('SVG final output keeps its MIME and bytes and is rejected as an edit source or reference before a round starts',async t=>{
+  let calls=0;
+  const svg=Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="10" height="10"/></svg>');
+  const {post,state,get,session}=await setup(t,{editImpl:async args=>{
+    calls++;const file=join(args.outputDir,'icon.svg');await writeFile(file,svg);return [file];
+  }});
+  const initial=await state();
+  assert.equal((await post('api/submit',{requestId:randomUUID(),revision:initial.revision,mode:'generate',prompt:'icon',
+    options:{outputFormat:'svg',model:'flare'}})).status,202);
+  const next=await settled(state),entry=next.images.at(-1);
+  assert.equal(entry.format,'svg');assert.equal(entry.width,1024);assert.equal(entry.editable,false);
+  const response=await fetch(new URL(entry.src,new URL((await get('')).url).origin));
+  assert.match(response.headers.get('content-type'),/image\/svg\+xml/);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()),svg);
+  assert.equal((await post('api/submit',{...submission(next),markup:undefined})).status,400);
+  assert.equal((await post('api/submit',{requestId:randomUUID(),revision:next.revision,mode:'generate',prompt:'use reference',
+    referenceIds:[entry.id],options:{outputFormat:'png',model:'flare'}})).status,400);
+  assert.equal(calls,1);
+  assert.equal(JSON.parse(await readFile(join(session.sessionDir,'session.json'),'utf8')).attempts.length,1);
+});
+test('stream partials appear while busy and do not create a final canvas image',async t=>{
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const {post,state,get}=await setup(t,{editImpl:async args=>{
+    const file=join(args.outputDir,'preview.png');await writeFile(file,png());
+    await args.onProgress({event:'partial_image',index:0,file,format:'png'});
+    await gate;throw new Error('stream ended without completed event');
+  }});
+  const initial=await state();
+  assert.equal((await post('api/submit',{...submission(initial),options:{stream:true,partialImages:1}})).status,202);
+  let active;
+  for(let i=0;i<100;i++){
+    active=await state();if(active.preview)break;
+    await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  try {
+    assert.equal(active.busy,true);assert.equal(active.images.length,1);
+    assert.equal((await get('api/preview')).status,200);
+  } finally {release();}
+  const next=await settled(state);
+  assert.equal(next.images.length,1);assert.equal(next.preview,null);
+});
+test('startup defaults and frame options survive finish and reopen without a new request',async t=>{
+  const {session,state,post,calls}=await setup(t,{quality:'max',complexity:'low',size:'2048x2048',outputFormat:'webp',outputCompression:75});
+  const initial=await state();
+  const node={id:randomUUID(),x:0,y:0,width:360,height:360,prompt:'',shapes:[],
+    options:{model:'gpt-image-2.6-flare',size:'auto',quality:'xhigh',outputFormat:'png'}};
+  assert.equal((await post('api/layout',{camera:{x:0,y:0,zoom:1},nodes:[node]})).status,200);
+  await session.close();
+  const resumed=await createReviewSession({session:session.sessionDir,apiKey:'test',editImpl:()=>assert.fail('no paid call')});
+  try {
+    const saved=await fetch(resumed.url+'api/state').then(r=>r.json());
+    for(const key of ['quality','complexity','size','outputFormat','outputCompression'])assert.equal(saved.defaults[key],initial.defaults[key]);
+    assert.deepEqual(saved.layout.nodes[0].options,node.options);assert.equal(calls.length,0);
+  } finally {await resumed.close();}
+});
+test('a complete frame settings object can unset optional startup defaults',async t=>{
+  const {post,state,calls}=await setup(t,{quality:'max',complexity:'high',outputCompression:75,outputFormat:'webp'});
+  const initial=await state();
+  assert.equal((await post('api/submit',{...submission(initial),
+    options:{model:'gpt-image-2.6-flare',size:'auto',outputFormat:'png'}})).status,202);
+  await settled(state);
+  assert.equal(calls.length,1);
+  for(const key of ['quality','complexity','outputCompression'])assert.equal(calls[0][key],undefined);
+  assert.equal(calls[0].outputFormat,'png');
+});
 
 test('review submits a separate markup, saves artifacts and edits the latest actual-size result next', async t => {
   const { session, calls, get, post, state } = await setup(t);

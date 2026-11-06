@@ -4,7 +4,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { requestImages, safeError, normalizeBase, MODELS, SUPPORTED_MODELS } from './client.mjs';
-import { inspectPng, inspectGif, pngDimensions, resolutionSize } from './image-info.mjs';
+import { pngDimensions, resolutionSize } from './image-info.mjs';
+import { imageMetadata } from './formats.mjs';
 
 const configPath = join(homedir(), '.config', 'vvvcode-image-gen', 'config.json');
 let apiKey = process.env.VVVCODE_API_KEY || '';
@@ -26,6 +27,9 @@ try {
     ratio: { type: 'string' },
     background: { type: 'string' },
     'output-format': { type: 'string' },
+    'output-compression': { type:'string' },
+    stream: { type:'boolean' },
+    'partial-images': { type:'string' },
     quality: { type: 'string' },
     complexity: { type: 'string' },
     'frame-count': { type: 'string' },
@@ -47,7 +51,10 @@ try {
   --prompt-file prompt.txt                    Avoid shell quoting issues
   --image a.png --image b.png --edit ...      Multiple reference images
   --count 1..4 --quality VALUE --timeout 300000 --output-dir outputs
-  --background transparent|opaque|auto --output-format png|jpeg|webp|gif
+  --background transparent|opaque|auto --output-format png|jpeg|webp|gif|svg
+  --output-compression 0..100                 JPEG/WebP only (encoding, not quality)
+  --stream [--partial-images 0..3]            Save partial previews; progress on stderr
+  --output-format svg --count 1               Generation only; no streaming
   --output-format gif --frame-count 15 --frame-duration-ms 200  3-second GIF
   --complexity low|medium|high                Planning effort, separate from quality
   --resolution 1K|2K|4K [--ratio 3:4]         Fits model limits; 4K <=3840 edge, <=8.29MP
@@ -102,7 +109,7 @@ No automatic retries or fallback from edits to generations.`);
       }
       size = resolutionSize(flags.resolution, ratio);
     }
-    size ??= flags.edit || flags['output-format'] === 'gif' ? 'auto' : '1024x1024';
+    size ??= flags.edit || ['gif','svg'].includes(flags['output-format']) ? 'auto' : '1024x1024';
     console.error(`Mode: ${mode}; model: ${MODELS[model] || model}; size: ${size}; background: ${flags.background || 'unspecified'}`);
     const files = await requestImages({
       apiKey, mode, model, prompt, images: flags.image, mask: flags.mask, markup: flags.markup,
@@ -110,6 +117,10 @@ No automatic retries or fallback from edits to generations.`);
       frameCount: flags['frame-count'] === undefined ? undefined : Number(flags['frame-count']),
       frameDurationMs: flags['frame-duration-ms'] === undefined ? undefined : Number(flags['frame-duration-ms']),
       outputFormat: flags['output-format'], n: Number(flags.count || 1),
+      outputCompression: flags['output-compression']===undefined?undefined:Number(flags['output-compression']),
+      stream:flags.stream,
+      partialImages:flags['partial-images']===undefined?undefined:Number(flags['partial-images']),
+      onProgress:event=>console.error(JSON.stringify(event)),
       timeout: Number(flags.timeout || 300000),
       baseUrl: flags['base-url'] || process.env.VVVCODE_BASE_URL || config.baseUrl,
       outputDir: flags['output-dir'],
@@ -117,7 +128,7 @@ No automatic retries or fallback from edits to generations.`);
     const results = [];
     for (const file of files) {
       let metadata;
-      try { metadata = file.endsWith('.gif') ? inspectGif(await readFile(file)) : inspectPng(await readFile(file)); }
+      try { metadata = imageMetadata(await readFile(file)); }
       catch (error) { metadata = { transparencyVerified: false, reason: safeError(error, apiKey) }; }
       const warnings = [];
       if (flags['output-format'] === 'gif') {

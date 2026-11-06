@@ -12,3 +12,13 @@
 - Keep the canvas UI aligned with the user's Cowart reference: neutral light-gray canvas, white floating panels, gray icons, blue selection and contextual composer.
 - Canvas undo/redo must change local layout/markup only, never replay generation requests; keep deleted image files and persist removed-frame state.
 - Respect Chinese IME composition and Shift+Enter in both prompt and inline annotation text.
+# Output verification
+
+- Keep model parameters in the shared pure options module; the CLI, local
+  server and canvas must apply identical combination and dimension checks.
+- Inspect actual image bytes and dimensions. HTTP 200 alone does not establish
+  size/format compliance or quality-tier differences.
+- Stream previews are separate evidence. Only a completed event is a final
+  image; an error or interrupted stream must never promote a preview.
+- Preserve unexpected formats as evidence, report the mismatch, and never
+  silently convert, relabel, retry, or switch models.

@@ -5,17 +5,7 @@ export function pngDimensions(bytes) {
   if (bytes.length < 33 || !bytes.subarray(0, 8).equals(signature)) throw new Error('Expected a PNG image.');
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 }
-export function resolutionSize(resolution, ratio = 1) {
-  const edge = { '1K': 1024, '2K': 2048, '4K': 3840 }[resolution.toUpperCase()];
-  if (!edge) throw new Error('Resolution must be 1K, 2K or 4K.');
-  if (!Number.isFinite(ratio) || ratio < 1 / 3 || ratio > 3) throw new Error('Unsupported aspect ratio; use 1:3 through 3:1.');
-  let width = ratio >= 1 ? edge : edge * ratio;
-  let height = ratio >= 1 ? edge / ratio : edge;
-  const scale = Math.min(1, Math.sqrt(8294400 / (width * height)));
-  width = Math.max(16, Math.floor(width * scale / 16) * 16);
-  height = Math.max(16, Math.floor(height * scale / 16) * 16);
-  return `${width}x${height}`;
-}
+export { resolutionSize } from '../ui/image-options.mjs';
 function paeth(a, b, c) {
   const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
