@@ -1,7 +1,7 @@
 {
   "name": "stickerwu-imagegen",
   "version": "1.6.0",
-  "description": "stickerwu imagegen: configurable API profiles, Image 2.5/2.6 generation, infinite canvas and annotated edits. Upgrades existing VVVCode Image Gen installations.",
+  "description": "stickerwu imagegen: configurable API profiles, Image 2.5/2.6 generation, infinite canvas and annotated edits.",
   "author": {
     "name": "stickerwu"
   },

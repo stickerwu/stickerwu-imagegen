@@ -80,7 +80,7 @@ GIF 只向显式支持的 2.6 路径发送请求，需要服务商为该账户�
 
 ## 更新和兼容旧版
 
-- 原 `vvvcode-image-gen` 插件/技能 ID、配置目录和脚本路径保留；新安装使用 `stickerwu-imagegen`。
+- 旧插件/技能 ID、配置目录和脚本路径保留；新安装使用 `stickerwu-imagegen`。
 - Codex/Claude 刷新各自的市场后更新插件；新开会话让宿主重新载入技能。
 - Harness 使用 `dsh plugin --profile desktop add <新版本Git引用或tarball>`，更新后重新加载 profile/重启应用。
 - 桌面 `desktop` profile 由 Electron 应用独占管理，不能用另一进程强行 boot 或 dump；使用官方安装命令，不手改 profile 依赖。

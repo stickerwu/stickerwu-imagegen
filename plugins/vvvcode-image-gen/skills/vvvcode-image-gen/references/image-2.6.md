@@ -34,7 +34,7 @@ some generic API reference prose still mentions only 2.5.
 Some examples and introductory prose on the main guide still use 2.5. Use the
 explicit 2.6 section, 2.6 prompting page and listed model IDs when migrating.
 
-## VVVCode evidence
+## Provider evidence
 
 2026-11-06, one live request:
 
@@ -53,7 +53,7 @@ explicit 2.6 section, 2.6 prompting page and listed model IDs when migrating.
 ```
 
 Returned HTTP 400: `GIF output is not enabled for this request.` No animation was
-returned. This is not evidence that OpenAI lacks GIF support or that all VVVCode
+returned. This is not evidence that OpenAI lacks GIF support or that all provider
 accounts/models lack it. It establishes failure for this request. No retry or
 alternate paid model request was made.
 

@@ -11,6 +11,6 @@
 
 ## 1.5.1 及以前
 
-原 VVVCode Image Gen 更名为 stickerwu imagegen，支持新 ID 安装和旧 ID 升级。
+显示名称统一为 stickerwu imagegen，支持新 ID 安装和旧 ID 升级。
 增加可配置 API 地址、独立命名连接、画布连接切换与避免跨地址复用密钥的保护。
 此前版本的 GIF、尺寸、格式和真实服务商验收限制继续保留在 README 中。

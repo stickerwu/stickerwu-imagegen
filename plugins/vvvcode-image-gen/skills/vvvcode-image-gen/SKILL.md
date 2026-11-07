@@ -1,12 +1,12 @@
 ---
 name: vvvcode-image-gen
-description: Use when the user invokes stickerwu imagegen or its former name VVVCode Image Gen, wants configurable image API profiles, GPT Image 2.5/2.6 Sunburst or Flare generation, an on-demand infinite canvas, annotated edits, or GIF output with this plugin.
+description: Use when the user invokes stickerwu imagegen, wants configurable image API profiles, GPT Image 2.5/2.6 Sunburst or Flare generation, an on-demand infinite canvas, annotated edits, or GIF output with this plugin.
 ---
 
 # stickerwu imagegen
 
-Formerly VVVCode Image Gen. This is the legacy upgrade entry; new installations
-use `stickerwu-imagegen`. Both entries keep the existing API configuration and
+This is the legacy upgrade entry; new installations use `stickerwu-imagegen`.
+Both entries keep the existing API configuration and
 saved canvas format; the legacy entry still supports in-place updates.
 
 Resolve `../../scripts/generate.mjs` relative to this SKILL.md. Requires Node.js
@@ -112,7 +112,7 @@ to legacy fields for older versions. Never inherit a key for a different endpoin
 Sunburst is for detailed work and precise edits; Flare is for fast iteration.
 Honor an explicit model choice. Explicit `gpt-image-2.5-sunburst` and
 `gpt-image-2.5-flare` remain pinned to 2.5. Never switch models on failure.
-OpenAI documents these 2.6 IDs, but VVVCode access and compatibility are separate.
+OpenAI documents these 2.6 IDs, but provider access and compatibility are separate.
 
 ## Generate and edit
 
@@ -192,10 +192,10 @@ camera behavior and a return to the starting pose in the prompt.
   Infinite-loop metadata does not establish a visually seamless boundary; inspect
   playback or boundary frames before claiming seamless motion.
 
-**VVVCode live status, 2026-11-06:** A direct 2.6 Sunburst GIF generation request
+**Provider live status, 2026-11-06:** A direct 2.6 Sunburst GIF generation request
 returned HTTP 400, `GIF output is not enabled for this request.` GIF preview
 access is required in the official API. Report this access/compatibility failure;
-do not claim GIF works on this VVVCode account, automatically retry, switch models,
+do not claim GIF works on this provider account, automatically retry, switch models,
 or substitute another framework. The original request was not retried. Flare GIF
 access has not been tested. See [compatibility](references/image-2.6.md).
 
@@ -216,7 +216,7 @@ annotations in the finished image. Do not combine `--markup` with `--mask` or
 prompt rewriter. The CLI verifies PNG overlay alpha and dimensions against PNG
 sources; the provider validates oriented JPEG/WebP source dimensions.
 
-**VVVCode live test, 2026-11-06:** One 2.6 Sunburst multipart edit with a source PNG
+**Provider live test, 2026-11-06:** One 2.6 Sunburst multipart edit with a source PNG
 and separate markup PNG succeeded in changing the targeted red circle to yellow;
 the annotation ring was absent from the result, and the text/layout remained
 recognizable. However, requested `1024x1024` returned `1254x1254`, and non-target
@@ -230,7 +230,7 @@ and `results`, inspect actual results, then display absolute local image paths.
 HTTP success proves a response, not edit accuracy, preservation or transparency.
 For transparency request `--background transparent --output-format png` or WebP,
 then verify real alpha. A September 2026 rejection on 2.5 Sunburst does not prove
-that 2.6 rejects transparency; 2.6 VVVCode transparency remains untested.
+that 2.6 rejects transparency; 2.6 transparency remains untested for this provider.
 
 The timeout is 300 seconds. Poll long-running sessions and keep the user informed.
 No automatic paid retries. Report credential-redacted errors. Do not silently

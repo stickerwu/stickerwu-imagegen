@@ -2,7 +2,7 @@
 
 在 **Codex、Claude Code 和 DeepSeek Harness** 中调用可配置的 OpenAI-compatible 图片 API，完成生图、参考图编辑和带透明标注层的改图。需要连续修改时，再打开本地无限画布；用户每次明确提交只发起一次图片请求。
 
-项目原名 **VVVCode Image Gen**，v1.6.0 保留旧安装入口，同时提供 Claude Code 原生插件和 DeepSeek Harness 原生 bundle。
+v1.6.0 提供 Claude Code 原生插件和 DeepSeek Harness 原生 bundle，并保留旧安装入口以便平滑升级。
 
 ## 适合什么场景
 
@@ -55,7 +55,7 @@ node plugins/vvvcode-image-gen/scripts/annotate.mjs --image result.png --open
 - API 地址需要兼容图片 generations / edits 端点；地址、密钥和 profile 可在画布设置中配置，也可使用环境变量。
 - GIF、透明背景、mask、流式预览和部分输出格式取决于实际服务商权限与中转实现。
 
-这是一份独立实现，画布的浅灰、白、蓝视觉和悬浮布局参考 Cowart；没有复制其代码、品牌资产或密钥。项目不是 VVVCode、OpenAI、Anthropic 或 DeepSeek 官方出品，也不代表任何官方市场审核或服务商能力承诺。
+这是一份独立实现，画布的浅灰、白、蓝视觉和悬浮布局参考 Cowart；没有复制其代码、品牌资产或密钥。项目不是 OpenAI、Anthropic 或 DeepSeek 官方出品，也不代表任何官方市场审核或服务商能力承诺。
 
 使用文档：[三端配置与排错](docs/usage.md) · [市场收录与官方目录](docs/marketplaces.md) ·
 [维护与发布](docs/releases.md) · [更新记录](CHANGELOG.md) · [隐私](PRIVACY.md) · [使用条款](TERMS.md)。
@@ -75,10 +75,10 @@ node plugins/vvvcode-image-gen/scripts/annotate.mjs --image result.png --open
 ## 兼容性状态
 
 2026-11-06 已实际读取 OpenAI 官方文档，确认 2.6 支持 GIF 和 markup 标注改图。
-本地协议测试通过，但这不代表 VVVCode 已开放全部功能。
+本地协议测试通过，但这不代表当前配置的服务商已开放全部功能。
 
 GIF 线上验收使用 2.6 Sunburst：15 帧、每帧 200 ms、512×512、high quality、medium complexity。
-VVVCode 返回 HTTP 400：`GIF output is not enabled for this request.` **没有生成 GIF，也没有重试。**
+当前配置的服务商返回 HTTP 400：`GIF output is not enabled for this request.` **没有生成 GIF，也没有重试。**
 官方 API 参考注明 GIF 需要对应模型的预览权限；需由服务商核实当前账户/渠道是否开放。
 另一次用户授权的线上标注改图使用 2.6 Sunburst：上传原图和独立透明 PNG 标注层，
 medium quality、low complexity、请求 1024×1024。结果将目标红圆改为黄色，
@@ -275,7 +275,7 @@ Agent 使用时读取 `ready` JSON 事件中的 URL，自动打开网页并交�
 `--open` 可直接打开系统默认浏览器。无需创建项目、搭建网页或安装前端依赖。
 
 界面配色、悬浮面板和主要交互参考 [Cowart](https://github.com/zhongerxin/cowart)，
-采用本插件独立实现的本地网页，沿用 VVVCode API，无需安装 Cowart。
+采用本插件独立实现的本地网页，沿用已配置的图片 API，无需安装 Cowart。
 
 - 浅灰画布、白色浮层、灰黑图标与蓝色选中态；左上画布菜单，右上样式面板，底部可拖动工具栏。
 - 支持单选、Shift 多选、拖框多选、整体拖动、四角等比缩放。空白处点击取消选择；空格 / 抓手 / 中键拖动平移，Ctrl / ⌘＋滚轮缩放。
