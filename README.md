@@ -1,23 +1,61 @@
 # stickerwu imagegen
 
-用于 **Codex、Claude Code、DeepSeek Harness** 的生图 / 改图插件，原名 **VVVCode Image Gen**。
-v1.6.0 增加 Claude Code 原生插件清单与 DeepSeek Harness 原生工具 / bundle；三端共用图片客户端、API 连接和按需标注画布。
-支持显式指定 Image 2.5 / 2.6，保留画布参数面板与输出协议：
-每个图片框可以独立选择模型、质量、复杂度、分辨率、输出格式、压缩和流式预览。
-沿用 Cowart 的浅灰、白、蓝配色与悬浮布局，支持撤销重做、多选、橡皮擦和参考图。
-支持图片框生图、导入图片、圈画改图、并排比较、保存后重新打开。
-普通生图和改图继续直接调用 API；只有需要画布时才启动本地网页。
-同时支持原生 GIF 请求和透明 PNG 标注层改图：
+在 **Codex、Claude Code 和 DeepSeek Harness** 中调用可配置的 OpenAI-compatible 图片 API，完成生图、参考图编辑和带透明标注层的改图。需要连续修改时，再打开本地无限画布；用户每次明确提交只发起一次图片请求。
 
-| 参数 | 模型 |
+项目原名 **VVVCode Image Gen**，v1.6.0 保留旧安装入口，同时提供 Claude Code 原生插件和 DeepSeek Harness 原生 bundle。
+
+## 适合什么场景
+
+| 需求 | 入口 |
+| --- | --- |
+| 一次生图或改图 | Codex skill、Claude skill，或 `generate.mjs` |
+| 多轮圈画、文字标注、参考图和比较 | `annotate.mjs` 本地无限画布 |
+| DeepSeek Harness 工具调用 | `stickerwu_imagegen_generate`、`_edit`、`_canvas`、`_status` |
+| 2.5 / 2.6 模型切换 | 每次请求显式指定模型，旧配置继续可用 |
+
+### 支持的模型 ID
+
+| 简写 | 实际模型 |
 | --- | --- |
 | `sunburst`（默认） | `gpt-image-2.6-sunburst` |
 | `flare` | `gpt-image-2.6-flare` |
+| 显式 2.5 | `gpt-image-2.5-sunburst` 或 `gpt-image-2.5-flare` |
 
-显式指定 `gpt-image-2.5-sunburst` 或 `gpt-image-2.5-flare` 时仍调用 2.5，不静默迁移。
+显式指定 2.5 时不会静默切换到 2.6。质量、复杂度、分辨率、输出格式、压缩和流式预览可以按图片框独立设置。
 
-这是一份独立实现，交互思路参考 Niu Image Gen；没有复制其代码、品牌资产或密钥。
-不是 VVVCode、OpenAI、Anthropic 或 DeepSeek 官方出品或官方审核背书的插件。使用各宿主公开的插件格式；中转服务权限和参数兼容性仍需分别验证。
+## 快速开始
+
+先配置一个 OpenAI-compatible API 地址和图片 API 密钥，然后按使用的宿主安装：
+
+```sh
+# Codex
+codex plugin marketplace add stickerwu/stickerwu-imagegen
+codex plugin add stickerwu-imagegen@vvvcode-plugins
+
+# Claude Code
+/plugin marketplace add stickerwu/stickerwu-imagegen
+/plugin install stickerwu-imagegen@stickerwu-plugins
+
+# DeepSeek Harness
+dsh plugin --profile desktop add github:stickerwu/stickerwu-imagegen#v1.6.0
+```
+
+安装后可以直接提出“生成一只小猫”或“把这张图里的帽子改成绿色”。需要手工标注时运行：
+
+```sh
+node plugins/vvvcode-image-gen/scripts/annotate.mjs --image result.png --open
+```
+
+画布支持图片导入、圈选、箭头、文字、橡皮擦、参考图、撤销重做和重新打开；点击“按标注修改”后，插件会把原图和独立透明 PNG 标注层发送到编辑端点。
+
+## 运行要求
+
+- Node.js 22+；普通 CLI 和画布不需要第三方运行时依赖。
+- DeepSeek Harness `>=0.2.2-rc.1 <0.3.0`；使用宿主自带 SDK，不安装第二份 Harness SDK。
+- API 地址需要兼容图片 generations / edits 端点；地址、密钥和 profile 可在画布设置中配置，也可使用环境变量。
+- GIF、透明背景、mask、流式预览和部分输出格式取决于实际服务商权限与中转实现。
+
+这是一份独立实现，画布的浅灰、白、蓝视觉和悬浮布局参考 Cowart；没有复制其代码、品牌资产或密钥。项目不是 VVVCode、OpenAI、Anthropic 或 DeepSeek 官方出品，也不代表任何官方市场审核或服务商能力承诺。
 
 使用文档：[三端配置与排错](docs/usage.md) · [市场收录与官方目录](docs/marketplaces.md) ·
 [维护与发布](docs/releases.md) · [更新记录](CHANGELOG.md) · [隐私](PRIVACY.md) · [使用条款](TERMS.md)。
