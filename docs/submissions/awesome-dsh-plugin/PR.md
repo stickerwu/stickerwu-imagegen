@@ -7,7 +7,7 @@
 已提交：[#12880](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12880)（2026-11-07）。
 
 将同目录 YAML 复制为目标仓库的 `data/plugins/stickerwu__stickerwu-imagegen.yml`，只提交该数据文件，不手改自动生成的 README。本文件本身不应复制到目标仓库。
-提交前已确认插件仓库具有 `dsh-plugin` topic，且 README 指向的 `v1.6.0` 标签已发布。
+提交前已确认插件仓库具有 `dsh-plugin` topic，且 README 指向的 `v1.6.1` 标签已发布。
 
 ---
 

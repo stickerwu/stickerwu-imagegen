@@ -1,6 +1,6 @@
 {
   "name": "dsh-stickerwu-imagegen",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "stickerwu imagegen for Codex, Claude Code and DeepSeek Harness: Image 2.5/2.6 generation and annotated edits",
   "type": "module",
   "license": "MIT",

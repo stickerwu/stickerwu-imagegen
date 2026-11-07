@@ -2,7 +2,7 @@
 
 在 **Codex、Claude Code 和 DeepSeek Harness** 中调用可配置的 OpenAI-compatible 图片 API，完成生图、参考图编辑和带透明标注层的改图。需要连续修改时，再打开本地无限画布；用户每次明确提交只发起一次图片请求。
 
-v1.6.0 提供 Claude Code 原生插件和 DeepSeek Harness 原生 bundle，并保留旧安装入口以便平滑升级。
+v1.6.1 提供 Claude Code 原生插件和 DeepSeek Harness 原生 bundle，并保留旧安装入口以便平滑升级。
 
 ## 适合什么场景
 
@@ -37,7 +37,7 @@ codex plugin add stickerwu-imagegen@vvvcode-plugins
 /plugin install stickerwu-imagegen@stickerwu-plugins
 
 # DeepSeek Harness
-dsh plugin --profile desktop add github:stickerwu/stickerwu-imagegen#v1.6.0
+dsh plugin --profile desktop add github:stickerwu/stickerwu-imagegen#v1.6.1
 ```
 
 安装后可以直接提出“生成一只小猫”或“把这张图里的帽子改成绿色”。需要手工标注时运行：
@@ -141,13 +141,13 @@ Gitee 用户可先克隆镜像，再用 `/plugin marketplace add <本地仓库�
 在 Harness CLI 可用的终端中，安装到实际使用的 profile（桌面默认 `desktop`）：
 
 ```sh
-dsh plugin --profile desktop add github:stickerwu/stickerwu-imagegen#v1.6.0
+dsh plugin --profile desktop add github:stickerwu/stickerwu-imagegen#v1.6.1
 ```
 
 Gitee 镜像：
 
 ```sh
-dsh plugin --profile desktop add git+https://gitee.com/stickerwu/stickerwu-imagegen.git#v1.6.0
+dsh plugin --profile desktop add git+https://gitee.com/stickerwu/stickerwu-imagegen.git#v1.6.1
 ```
 
 也可以在源码目录生成并安装经过检查的离线包；`pack:verify` 打印实际 tarball 绝对路径：
@@ -155,7 +155,7 @@ dsh plugin --profile desktop add git+https://gitee.com/stickerwu/stickerwu-image
 ```sh
 npm run build
 npm run pack:verify
-dsh plugin --profile desktop add <打印出的-dsh-stickerwu-imagegen-1.6.0.tgz-绝对路径>
+dsh plugin --profile desktop add <打印出的-dsh-stickerwu-imagegen-1.6.1.tgz-绝对路径>
 ```
 
 安装后重新加载该 profile / 重启 Harness。CLI 负责维护 profile 依赖和 bundle 顺序，无需手工改宿主配置。

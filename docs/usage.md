@@ -1,6 +1,6 @@
 # 安装、配置与排错
 
-适用版本：stickerwu imagegen 1.6.0。三端安装命令见 [README](../README.md#安装)。
+适用版本：stickerwu imagegen 1.6.1。三端安装命令见 [README](../README.md#安装)。
 插件独立维护，使用公开的宿主插件接口；不代表 OpenAI、Anthropic、DeepSeek 或图片服务商官方出品。
 
 ## 三端分别提供什么
