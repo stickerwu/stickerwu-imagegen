@@ -7,7 +7,7 @@
 
 | 平台/渠道 | 本项目提供的内容 | 尚需处理 |
 | --- | --- | --- |
-| DeepSeek Harness | 原生工具、Config schema、Cordis bundle、预构建包、Git/tarball 安装 | 社区索引需要维护者审核收录 PR |
+| DeepSeek Harness | 原生工具、Config schema、Cordis bundle、预构建包、Git/tarball 安装 | 已提交社区收录 PR #12880，等待维护者审核 |
 | Codex 自建市场 | `.agents/plugins/marketplace.json` 和独立插件目录，保留旧 ID | 用户添加本项目市场即可安装；不等于官方目录上架 |
 | Claude Code 自建市场 | `.claude-plugin/marketplace.json` 和原生插件清单 | 用户添加 `stickerwu/stickerwu-imagegen` 后安装；不等于官方目录上架 |
 | Codex 官方精选 | 可检查的源代码、隐私/条款/支持文档、原生清单 | 官方 README 未给出自动收录入口；不能把自建市场安装当作官方收录 |
@@ -28,10 +28,11 @@
 4. 描述简洁客观；分类使用允许值。按其贡献规范发起 PR，由维护者审核。
 
 本仓库创建于 **2026-09-09**，已超过一天，许可 MIT。当前功能选择有效分类 `vision`。
-2026-11-07 检查时尚未在索引中收录；已为本仓库添加并核验 `dsh-plugin` topic。
+2026-11-07 检查时尚未在索引中收录；已为本仓库添加并核验 `dsh-plugin` topic，
+并已提交 [PR #12880](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12880)。
 准备好的条目为 [stickerwu__stickerwu-imagegen.yml](submissions/awesome-dsh-plugin/stickerwu__stickerwu-imagegen.yml)，
 投稿正文为 [PR 说明](submissions/awesome-dsh-plugin/PR.md)。
-投稿时只把 YAML 放到目标仓库的 `data/plugins/stickerwu__stickerwu-imagegen.yml`，不要手改其自动生成的 README，也不要复制本项目的全部源码。
+PR 只包含目标仓库的 `data/plugins/stickerwu__stickerwu-imagegen.yml`，没有手改其自动生成的 README，也没有复制本项目源码。
 
 本项目有原生 Harness 入口，不是让 Harness 执行 Codex 专用技能。目标索引的 YAML 只描述项目，不是 Harness 运行时插件清单。
 Git 标签及镜像存在后，条目中的安装说明可直接使用 README 中的固定版本引用。
